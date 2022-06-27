@@ -1,0 +1,87 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+The MIT License (MIT) Copyright (c) 2020-2022 artipie.com
+https://github.com/artipie/http/blob/master/LICENSE.txt
+-->
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+  <modelVersion>4.0.0</modelVersion>
+  <parent>
+    <groupId>com.artipie</groupId>
+    <artifactId>ppom</artifactId>
+    <version>v1.1.3</version>
+  </parent>
+  <artifactId>hexpm-adapter</artifactId>
+  <version>1.0-SNAPSHOT</version>
+  <name>hexpm-adapter</name>
+  <description>An Artipie adapter for Erlang/Elixir packages</description>
+  <url>https://github.com/artipie/hexpm-adapter</url>
+  <licenses>
+    <license>
+      <name>MIT</name>
+      <url>https://github.com/artipie/hexpm-adapter/blob/master/LICENSE.txt</url>
+    </license>
+  </licenses>
+  <developers>
+    <developer>
+      <id>github.com/Swizbiz</id>
+      <name>Aleksei Borodin</name>
+      <email>swizbizy@gmail.com</email>
+      <organization>Artipie</organization>
+      <organizationUrl>https://www.artipie.com</organizationUrl>
+      <roles>
+        <role>Developer</role>
+      </roles>
+      <timezone>+3</timezone>
+    </developer>
+  </developers>
+  <issueManagement>
+    <system>GitHub issues</system>
+    <url>https://github.com/artipie/hexpm-adapter/issues</url>
+  </issueManagement>
+  <distributionManagement>
+    <site>
+      <id>github-pages</id>
+      <url>https://github.com/artipie/hexpm-adapter</url>
+    </site>
+  </distributionManagement>
+  <scm>
+    <connection>scm:git:git://github.com/artipie/hexpm-adapter.git</connection>
+    <developerConnection>scm:git:ssh://github.com:artipie/hexpm-adapter.git</developerConnection>
+    <url>https://github.com/artipie/hexpm-adapter/tree/master</url>
+  </scm>
+
+  <properties>
+    <maven.compiler.source>17</maven.compiler.source>
+    <maven.compiler.target>17</maven.compiler.target>
+    <qulice.license>${project.basedir}/LICENSE.header</qulice.license>
+  </properties>
+  <dependencies>
+
+
+
+
+  </dependencies>
+  <build>
+    <plugins>
+      <plugin>
+        <groupId>org.jacoco</groupId>
+        <artifactId>jacoco-maven-plugin</artifactId>
+        <version>0.8.8</version>
+        <executions>
+          <execution>
+            <goals>
+              <goal>prepare-agent</goal>
+            </goals>
+          </execution>
+          <execution>
+            <id>report</id>
+            <phase>test</phase>
+            <goals>
+              <goal>report</goal>
+            </goals>
+          </execution>
+        </executions>
+      </plugin>
+    </plugins>
+  </build>
+</project>
