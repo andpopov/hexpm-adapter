@@ -4,8 +4,10 @@
  */
 package com.artipie.hex;
 
+import com.artipie.asto.Key;
 import com.artipie.asto.Storage;
 import com.artipie.asto.memory.InMemoryStorage;
+import com.artipie.asto.test.TestResource;
 import com.artipie.hex.http.HexSlice;
 import com.artipie.http.auth.Authentication;
 import com.artipie.http.auth.Permissions;
@@ -14,12 +16,11 @@ import com.artipie.vertx.VertxSliceServer;
 import io.vertx.reactivex.core.Vertx;
 import java.io.IOException;
 import java.nio.file.Path;
-import java.util.List;
 import java.util.Optional;
 import org.apache.commons.lang3.tuple.ImmutablePair;
 import org.apache.commons.lang3.tuple.Pair;
 import org.hamcrest.MatcherAssert;
-import org.hamcrest.text.StringContainsInOrder;
+import org.hamcrest.core.StringContains;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.condition.EnabledOnOs;
@@ -27,12 +28,9 @@ import org.junit.jupiter.api.condition.OS;
 import org.junit.jupiter.api.io.TempDir;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import org.testcontainers.Testcontainers;
 import org.testcontainers.containers.BindMode;
 import org.testcontainers.containers.GenericContainer;
-import org.testcontainers.containers.output.Slf4jLogConsumer;
 
 @EnabledOnOs({OS.LINUX, OS.MAC})
 public class HexITCase {
@@ -46,11 +44,6 @@ public class HexITCase {
      * Test user.
      */
     private static final Pair<String, String> USER = new ImmutablePair<>("Aladdin", "openSesame");
-
-    /**
-     * Logger for output from testcontainer.
-     */
-    private static final Logger LOGGER = LoggerFactory.getLogger(HexITCase.class);
 
     /**
      * Temporary directory for all tests.
@@ -81,27 +74,56 @@ public class HexITCase {
 
     @ParameterizedTest
     @ValueSource(booleans = {true, /*false*/})//todo
-    void downloadsDependency(final boolean anonymous) throws Exception {
+    void downloadsDependency(final boolean anonymous) throws IOException, InterruptedException {
         this.init(anonymous);
-//        this.addHelloworldToArtipie();
-        System.out.println("install hex: " + this.exec("mix", "local.hex", "--force"));
-
-        String url = String.format("http://host.testcontainers.internal:%d", this.port);
-        System.out.println("make repo..." + this.exec("mix", "hex.repo", "add", "my_repo", url));
-        System.out.println("list of repos:\n" + this.exec("mix", "hex.repo", "list"));
+        this.addHexAndRepoToContainer();
+        this.addArtifactToArtipie();
 
         MatcherAssert.assertThat(
-//            this.exec("mix", "deps.get"),
-            this.exec("mix", "hex.package", "fetch my_artifact", "0.4.0", "--repo=my_repo"),
-            new StringContainsInOrder(List.of(
-                "Resolving Hex dependencies...",
-                "Dependency resolution completed:",
-                "Unchanged:", //todo
-                "my_artifact 0.4.0",
-                "All dependencies are up to date"
-                )
+            this.exec("mix", "hex.package", "fetch", "decimal", "2.0.0", "--repo=my_repo"),
+            new StringContains(
+                "decimal v2.0.0 downloaded to /var/kv/decimal-2.0.0.tar"
             )
         );
+    }
+
+    @ParameterizedTest
+    @ValueSource(booleans = {true, /*false*/})//todo
+    void uploadsDependency(final boolean anonymous) throws IOException, InterruptedException {
+        this.init(anonymous);
+        this.addHexAndRepoToContainer();
+        System.out.println("user auth = " + this.exec("mix", "hex.user", "auth"));//todo know how send data to container`s stdin
+
+        MatcherAssert.assertThat(
+            this.exec("mix", "hex.publish"),
+            new StringContains(
+                "publish success"//todo
+            )
+        );
+    }
+
+/*
+//todo использовать для момента, когда такая зависимость уже есть в наличии
+
+        new StringContainsInOrder(List.of(
+            "Resolving Hex dependencies...",
+            "Dependency resolution completed:",
+            "Unchanged:",
+            "my_artifact 0.4.0",
+            "All dependencies are up to date"
+        );
+*/
+
+    private void addHexAndRepoToContainer() throws IOException, InterruptedException {//todo
+        System.out.println("install hex: " +
+            this.exec("mix", "local.hex", "--force"));
+
+        System.out.println("make repo..." +
+            this.exec("mix", "hex.repo", "add", "my_repo", String.format("http://host.testcontainers.internal:%d", this.port)));
+
+        System.out.println("check repos" +
+            this.exec("mix", "hex.repo", "list"));
+
     }
 
     @AfterEach
@@ -131,15 +153,23 @@ public class HexITCase {
                 BindMode.READ_WRITE
             )
             .withWorkingDirectory("/var/kv")
+            .withEnv("HEX_UNSAFE_REGISTRY", "1")
+            .withEnv("HEX_NO_VERIFY_REPO_ORIGIN", "1")
+            .withEnv("HEX_API_URL", String.format("http://host.testcontainers.internal:%d", this.port))//todo for pushing
             .withCommand("tail", "-f", "/dev/null")
             .withFileSystemBind(this.tmp.toString(), "/home"); //todo нужна ли???
         this.cntn.start();
-        Slf4jLogConsumer logConsumer = new Slf4jLogConsumer(LOGGER);//todo
-        cntn.followOutput(logConsumer);
     }
 
-    private String exec(final String... actions) throws Exception {
-        return this.cntn.execInContainer(actions).getStdout().replaceAll("\n", "");
+    private String exec(final String... actions) throws IOException, InterruptedException {
+        return this.cntn.execInContainer(actions).toString()
+            //.replaceAll("\n", "")//todo
+        ;
+    }
+
+    private void addArtifactToArtipie() {
+        new TestResource("binary")
+            .addFilesTo(this.storage, new Key.From("binary"));
     }
 
     private Pair<Permissions, Authentication> auth(final boolean anonymous) {
