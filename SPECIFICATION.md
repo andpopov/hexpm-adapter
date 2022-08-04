@@ -1,6 +1,8 @@
 [Specification](https://github.com/hexpm/specifications/blob/488fdb7e0d92c2149b7d21088621176d3ec76c8d/apiary.apib) + [online viewer](https://dillinger.io/)
 
-[endpoints](https://github.com/hexpm/specifications/blob/main/endpoints.md#repository)
+The specifications describe two [endpoints](https://github.com/hexpm/specifications/blob/main/endpoints.md#repository):
+1. HTTP API(https://hex.pm/api/) - used for publishing packages, packages search, and administrative tasks.
+2. Repository(https://repo.hex.pm/) - read-only endpoint that delivers registry resources and package tarballs.
 
 [hex man](https://medium.com/@toddresudek/hex-power-user-deb608e60935)
 
@@ -8,18 +10,20 @@
 
 [Building custom Hex repositories](https://dashbit.co/blog/mix-hex-registry-build)
 
-## Case for using Mix with dependency from another repository
+[Offline (Docker) Hex Mirror](https://fnlog.dev/wanderer/elixir-bit-offline-docker-hex-mirror/)
 
-_Mix is the building system for Elixir and Erlang like Maven for Java_
+_Mix and Rebar is the building system for Elixir and Erlang, like Maven and Gradle for Java_
 
 [install](https://elixir-lang.org/install.html) erlang and elixir
 
-create new project
+<hr>
+
+Create new project
 ```shell
 mix new kv --module KV
 ```
 
-install hex
+Install hex
 ```shell
 mix local.hex --force
 ```
@@ -37,33 +41,57 @@ mix hex.registry build public --name=my_repo --private-key=private_key.pem
 ```
 [//]: # (todo расковырять как делать публичный ключ без создания registry через hex )
 
-my_repo will contain my_artifact.tar
+my_repo will contain decimal.tar  
+Get decimal.tar from hex.pm and move it to your repo
+```shell
+mix hex.package fetch decimal 2.0.0
+```
 
 Add a dependency from Artipie repository(repo name is **_my_repo_**) in `mix.exs` in the `defp deps` function (https://hexdocs.pm/hex/Mix.Tasks.Hex.Repo.html):
 ```elixir
-  defp deps do
+#mix.exs
+defmodule Kv.MixProject do
+  use Mix.Project
+
+  def project do
     [
-      {:my_artifact, "~> 0.4.0", repo: "my_repo"}
+      # ...
+      deps: deps()
     ]
   end
+  defp deps do
+    [
+      {:decimal, "~> 2.0.0", repo: "my_repo"}
+    ]
+  end
+end
 ```
 
-add repo
+Add repo
 ```shell
-mix hex.repo add my_repo http//:localhost:<artipie_port>
+mix hex.repo add my_repo http://<localhost>:<artipie_port>
 ```
 
-show all repositories
+Show all repositories
 ```shell
 mix hex.repo list
 ```
 
-get dependencies with lock version
+Switch `unsafe_https` to true (If set to true Hex will not verify HTTPS certificates). Can be overridden by setting the environment variable `HEX_UNSAFE_HTTPS`
+```shell
+mix hex.config unsafe_https true
+```
+And switch `no_verify_repo_origin ` to true (If set to true Hex will not verify the registry origin). Can be overridden by setting the environment variable `HEX_NO_VERIFY_REPO_ORIGIN`
+```shell
+mix hex.config no_verify_repo_origin true
+```
+
+Get dependencies with lock version
 ```shell
 mix deps.get
 ```
 
-update dependencies bypass of locked version
+Update dependencies bypass of locked version
 ```shell
 mix hex.outdated
 mix deps.update
@@ -72,17 +100,26 @@ mix deps.update --all
 
 <hr>
 
-### fetch dependencies work only with hex.registry???
+### fetch dependencies work only with hex.registry
 ```shell
 mix hex.package fetch
-mix hex.package fetch my_artifact 0.4.0 --repo=my_repo
+mix hex.package fetch decimal 2.0.0 --repo=my_repo
 ```
 
 <hr>
 
 ###  Use it to publish packages in private repo
 
+[publishing via mix](https://hex.pm/docs/publish)
+[publishing via rebar](https://hex.pm/docs/rebar3_publish)
+
+```shell
+mix hex.publish
+```
+???
+```shell
 $ HEX_API_URL=http://<HOST> HEX_API_KEY=<AUTH_KEY> mix hex.publish package
+```
 
 For publishing we have the /api/publish endpoint https://github.com/hexpm/hexpm/pull/674 + https://github.com/hexpm/hexpm/issues/489 + https://github.com/hexpm/hex/pull/665/files
 
