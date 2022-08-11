@@ -76,7 +76,6 @@ public class HexITCase {
     @ValueSource(booleans = {true, /*false*/})//todo
     void downloadsDependency(final boolean anonymous) throws IOException, InterruptedException {
         this.init(anonymous);
-        this.addHexAndRepoToContainer();
         this.addArtifactToArtipie();
 
         MatcherAssert.assertThat(
@@ -86,33 +85,34 @@ public class HexITCase {
             )
         );
     }
+/*
+//todo use it when dependency already have downloaded in project
+
+        MatcherAssert.assertThat(
+            this.exec("mix", "hex.deps", "get"),
+            new StringContainsInOrder(List.of(
+                "Resolving Hex dependencies...",
+                "Dependency resolution completed:",
+                "Unchanged:",
+                "my_artifact 0.4.0",
+                "All dependencies are up to date"
+            ))
+         );
+*/
 
     @ParameterizedTest
     @ValueSource(booleans = {true, /*false*/})//todo
     void uploadsDependency(final boolean anonymous) throws IOException, InterruptedException {
         this.init(anonymous);
-        this.addHexAndRepoToContainer();
         System.out.println("user auth = " + this.exec("mix", "hex.user", "auth"));//todo know how send data to container`s stdin
 
         MatcherAssert.assertThat(
             this.exec("mix", "hex.publish"),
             new StringContains(
-                "publish success"//todo
+                "Published kv v0.1.0"
             )
         );
     }
-
-/*
-//todo использовать для момента, когда такая зависимость уже есть в наличии
-
-        new StringContainsInOrder(List.of(
-            "Resolving Hex dependencies...",
-            "Dependency resolution completed:",
-            "Unchanged:",
-            "my_artifact 0.4.0",
-            "All dependencies are up to date"
-        );
-*/
 
     private void addHexAndRepoToContainer() throws IOException, InterruptedException {//todo
         System.out.println("install hex: " +
@@ -138,7 +138,7 @@ public class HexITCase {
     }
 
     @SuppressWarnings("resource")
-    void init(final boolean anonymous) throws IOException {
+    void init(final boolean anonymous) throws IOException, InterruptedException {
         final Pair<Permissions, Authentication> auth = this.auth(anonymous);
         this.storage = new InMemoryStorage();
         this.server = new VertxSliceServer(
@@ -148,7 +148,8 @@ public class HexITCase {
         this.port = this.server.start();
         Testcontainers.exposeHostPorts(this.port);
         this.cntn = new GenericContainer<>("elixir:1.13.4")
-            .withClasspathResourceMapping("/kv",
+            .withClasspathResourceMapping(
+                "/kv",
                 "/var/kv",
                 BindMode.READ_WRITE
             )
@@ -159,6 +160,7 @@ public class HexITCase {
             .withCommand("tail", "-f", "/dev/null")
             .withFileSystemBind(this.tmp.toString(), "/home"); //todo нужна ли???
         this.cntn.start();
+        this.addHexAndRepoToContainer();
     }
 
     private String exec(final String... actions) throws IOException, InterruptedException {
