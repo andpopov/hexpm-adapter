@@ -113,12 +113,24 @@ mix hex.package fetch decimal 2.0.0 --repo=my_repo
 [publishing via mix](https://hex.pm/docs/publish)
 [publishing via rebar](https://hex.pm/docs/rebar3_publish)
 
+Publishes a new package version - `POST /publish?replace=<true or false> HTTP_1_1`
 ```shell
 mix hex.publish
 ```
-???
+
+Publish current package
+```shell
+mix hex.publish package
+```
+
+Change `api_url` and and publish current package
 ```shell
 $ HEX_API_URL=http://<HOST> HEX_API_KEY=<AUTH_KEY> mix hex.publish package
+```
+
+push artifact in my_organization's repo - `POST /repos/my_organization/publish?replace=<true or false> HTTP_1_1`
+```shell
+mix hex.publish --organization my_organization
 ```
 
 For publishing we have the /api/publish endpoint https://github.com/hexpm/hexpm/pull/674 + https://github.com/hexpm/hexpm/issues/489 + https://github.com/hexpm/hex/pull/665/files

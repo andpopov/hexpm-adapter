@@ -17,4 +17,7 @@ The following are the accepted media types:
 
 The erlang media type is a safe subset of erlang terms serialized with [`erlang:term_to_binary/1`](http://www.erlang.org/doc/man/erlang.html#term_to_binary-1). The only allowed terms are maps, lists, tuples, numbers, binaries and booleans. Atoms are strictly not allowed.
 
-4. 
+4. every time when publish artifact you need enter local machine password.  
+Use token or auth with organization
+
+5. when publish - make documentation
