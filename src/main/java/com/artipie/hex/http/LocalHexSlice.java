@@ -7,8 +7,6 @@ package com.artipie.hex.http;
 import com.artipie.asto.Content;
 import com.artipie.asto.Key;
 import com.artipie.asto.Storage;
-import com.artipie.asto.ext.ContentAs;
-import com.artipie.asto.ext.PublisherAs;
 import com.artipie.http.Headers;
 import com.artipie.http.Response;
 import com.artipie.http.Slice;
@@ -150,6 +148,11 @@ public class LocalHexSlice implements Slice {
 //                InputStream inputStr = con.getInputStream();
 //                byte[] response = inputStr.readAllBytes();
 
+//                bodyAsBytes(body)
+//                    .thenAcceptAsync(bytes -> {
+//                        System.out.println(new String(bytes));
+//                    }).get();
+
                 AsyncResponse res = new AsyncResponse(
                     this.storage.save(
                         new Key.From("kv"),
@@ -209,6 +212,36 @@ public class LocalHexSlice implements Slice {
         } else {
             return new RsWithStatus(RsStatus.BAD_REQUEST);
         }
+    }
+
+    private CompletableFuture<byte[]> bodyAsBytes(Publisher<ByteBuffer> body) {
+        return CompletableFuture.supplyAsync(
+            () -> {
+                final ByteBuffer buffer = Flowable.fromPublisher(body)
+                    .toList()
+                    .blockingGet()
+                    .stream()
+                    .reduce(
+                        (left, right) -> {
+                            left.mark();
+                            right.mark();
+                            final ByteBuffer concat = ByteBuffer.allocate(
+                                left.remaining() + right.remaining()
+                            ).put(left).put(right);
+                            left.reset();
+                            right.reset();
+                            concat.flip();
+                            return concat;
+                        }
+                    )
+                    .orElse(ByteBuffer.allocate(0));
+                final byte[] bytes = new byte[buffer.remaining()];
+                buffer.mark();
+                buffer.get(bytes);
+                buffer.reset();
+                return bytes;
+            }
+        );
     }
 
     public CompletableFuture<ByteBuffer> accept(final Publisher<ByteBuffer> body) {//todo need only for testing protobuf
