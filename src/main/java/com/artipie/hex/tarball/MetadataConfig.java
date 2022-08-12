@@ -42,16 +42,6 @@ final public class MetadataConfig {
         return app;
     }
 
-
-    public boolean isBinary(ETPTuple tuple, int pos) {
-        ETPTerm<?> term = tuple.getValue(0);
-        return term instanceof ETPBinary;
-    }
-
-    public ETPBinary asBinary(ETPTuple tuple, int pos) {
-        return  (ETPBinary)(tuple.getValue(0));
-    }
-
     public static MetadataConfig create(Path path) throws IOException, ETP.ParseException {
         Objects.requireNonNull(path);
 
