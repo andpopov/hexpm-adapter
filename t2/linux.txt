@@ -1,0 +1,5 @@
+mix hex.repo add my_repo http://localhost:8080
+export HEX_UNSAFE_REGISTRY=1
+export HEX_NO_VERIFY_REPO_ORIGIN=1
+mix hex.package fetch decimal 2.0.0 --repo=my_repo
+

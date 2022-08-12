@@ -1,0 +1,1 @@
+searchNodes=[{"doc":"Documentation for Kv .","ref":"Kv.html","title":"Kv","type":"module"},{"doc":"Hello world. Examples iex&gt; Kv . hello ( ) :world","ref":"Kv.html#hello/0","title":"Kv.hello/0","type":"function"}]

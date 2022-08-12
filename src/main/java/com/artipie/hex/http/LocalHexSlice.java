@@ -7,6 +7,8 @@ package com.artipie.hex.http;
 import com.artipie.asto.Content;
 import com.artipie.asto.Key;
 import com.artipie.asto.Storage;
+import com.artipie.asto.ext.ContentAs;
+import com.artipie.asto.ext.PublisherAs;
 import com.artipie.http.Headers;
 import com.artipie.http.Response;
 import com.artipie.http.Slice;
@@ -24,7 +26,13 @@ import java.net.URL;
 import java.nio.ByteBuffer;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
+
+import io.reactivex.Single;
+import io.reactivex.internal.operators.flowable.FlowableMap;
+import org.reactivestreams.Processor;
 import org.reactivestreams.Publisher;
+import org.reactivestreams.Subscriber;
+import org.reactivestreams.Subscription;
 
 public class LocalHexSlice implements Slice {
 
@@ -71,11 +79,11 @@ public class LocalHexSlice implements Slice {
             System.out.println("inside packages");
             HttpURLConnection con = null;
             try {
-                con = (HttpURLConnection) new URL("https://repo.hex.pm/packages/aba").openConnection();//todo proxy to hexpm with archive
-                con.setRequestMethod("GET");
-                con.setDoInput(true);
-                InputStream inputStr = con.getInputStream();
-                byte[] response = inputStr.readAllBytes();
+//                con = (HttpURLConnection) new URL("https://repo.hex.pm/packages/aba").openConnection();//todo proxy to hexpm with archive
+//                con.setRequestMethod("GET");
+//                con.setDoInput(true);
+//                InputStream inputStr = con.getInputStream();
+//                byte[] response = inputStr.readAllBytes();
 
 //                PackageOuterClass.Package package1 =
 //                    PackageOuterClass.Package.parseFrom(response);
@@ -108,13 +116,13 @@ public class LocalHexSlice implements Slice {
             System.out.println("inside packages");
             HttpURLConnection con = null;
             try {
-                con = (HttpURLConnection) new URL("https://hex.pm/api/users/swizbiz").openConnection();//todo proxy to hexpm
-                con.setRequestMethod("GET");
-                con.setRequestProperty("Accept", "application/vnd.hex+erlang");
-                con.setRequestProperty("Authorization", "824650fa6e7687b54a95c43d2bbe8e59");
-                con.setDoInput(true);
-                InputStream inputStr = con.getInputStream();
-                byte[] response = inputStr.readAllBytes();
+//                con = (HttpURLConnection) new URL("https://hex.pm/api/users/swizbiz").openConnection();//todo proxy to hexpm
+//                con.setRequestMethod("GET");
+//                con.setRequestProperty("Accept", "application/vnd.hex+erlang");
+//                con.setRequestProperty("Authorization", "824650fa6e7687b54a95c43d2bbe8e59");
+//                con.setDoInput(true);
+//                InputStream inputStr = con.getInputStream();
+//                byte[] response = inputStr.readAllBytes();
 
                 return new RsFull(RsStatus.NO_CONTENT, new Headers.From(//todo workaround with NO_CONTENT
 //                    new Header("Content-length", String.valueOf(response.length)),
@@ -135,19 +143,42 @@ public class LocalHexSlice implements Slice {
             System.out.println("inside publish");
             HttpURLConnection con = null;
             try {
-                con = (HttpURLConnection) new URL("https://hex.pm/api/packages/aba").openConnection();
-                con.setRequestMethod("GET");
-                con.setRequestProperty("Accept", "application/vnd.hex+erlang");
-                con.setDoInput(true);
-                InputStream inputStr = con.getInputStream();
-                byte[] response = inputStr.readAllBytes();
+//                con = (HttpURLConnection) new URL("https://hex.pm/api/packages/aba").openConnection();
+//                con.setRequestMethod("GET");
+//                con.setRequestProperty("Accept", "application/vnd.hex+erlang");
+//                con.setDoInput(true);
+//                InputStream inputStr = con.getInputStream();
+//                byte[] response = inputStr.readAllBytes();
 
-                return new AsyncResponse(
+                AsyncResponse res = new AsyncResponse(
                     this.storage.save(
-                            new Key.From("kv"),
-                            new ContentWithSize(body, headers)
-                        ).thenApply(nothing -> new RsWithBody(
-                                new RsWithStatus(RsStatus.CREATED),
+                        new Key.From("kv"),
+                        new ContentWithSize(body, headers)
+                    ).thenApply(nothing -> new RsWithBody(
+                            new RsWithStatus(RsStatus.CREATED),
+                            """
+                                    {
+                                        "version": "0.1.0",
+                                        "has_docs": false,
+                                        "url": "https://hex.pm/api/packages/kv/releases/0.1.0",
+                                        "package_url": "https://hex.pm/api/packages/kv",
+                                        "html_url": "https://hex.pm/packages/kv/0.1.0",
+                                        "docs_html_url": "https://hexdocs.pm/kv/0.1.0",
+                                        "meta": {
+                                          "build_tools": ["mix"]
+                                        },
+                                        "dependencies": {
+                                          "cowboy": {
+                                            "requirement": "~> 1.0",
+                                            "optional": true,
+                                            "app": "cowboy"
+                                          }
+                                        }
+                                        "downloads": 16,
+                                        "inserted_at": "2014-04-23T18:58:54Z",
+                                        "updated_at": "2014-04-23T18:58:54Z"
+                                      }
+                                """.getBytes()
 /*
                                     """
                                             {
@@ -166,10 +197,11 @@ public class LocalHexSlice implements Slice {
                                               }
                                         """.getBytes()
 */
-                        response
-                                )
+                        )
                     )
                 );
+                System.out.println();
+                return res;
             } catch (Exception e) {
               System.out.println("e.getMessage() = " + e.getMessage());
               throw new RuntimeException("ERROR in /publish = ", e);
