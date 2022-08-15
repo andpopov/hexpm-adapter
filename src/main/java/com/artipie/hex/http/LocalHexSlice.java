@@ -7,6 +7,7 @@ package com.artipie.hex.http;
 import com.artipie.asto.Content;
 import com.artipie.asto.Key;
 import com.artipie.asto.Storage;
+import com.artipie.hex.tarball.HexPackageNameExtractor;
 import com.artipie.http.Headers;
 import com.artipie.http.Response;
 import com.artipie.http.Slice;
@@ -16,14 +17,15 @@ import com.artipie.http.rs.RsFull;
 import com.artipie.http.rs.RsStatus;
 import com.artipie.http.rs.RsWithBody;
 import com.artipie.http.rs.RsWithStatus;
-import com.artipie.http.slice.ContentWithSize;
 import io.reactivex.Flowable;
-import java.io.InputStream;
+
+import java.io.*;
 import java.net.HttpURLConnection;
 import java.net.URL;
 import java.nio.ByteBuffer;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutionException;
 import org.reactivestreams.Publisher;
 
 public class LocalHexSlice implements Slice {
@@ -133,43 +135,51 @@ public class LocalHexSlice implements Slice {
             }
         } else if (line.contains("/publish")) {
             System.out.println("inside publish");
-            HttpURLConnection con = null;
             try {
-                con = (HttpURLConnection) new URL("https://hex.pm/api/packages/aba").openConnection();
-                con.setRequestMethod("GET");
-                con.setRequestProperty("Accept", "application/vnd.hex+erlang");
-                con.setDoInput(true);
-                InputStream inputStr = con.getInputStream();
-                byte[] response = inputStr.readAllBytes();
-
                 return new AsyncResponse(
-                    this.storage.save(
-                            new Key.From("kv"),
-                            new ContentWithSize(body, headers)
+                    CompletableFuture
+                        .supplyAsync(() -> {
+                                byte[] bytes = asBytes(body);
+                                String tarName = HexPackageNameExtractor.extract(bytes).orElseThrow();
+                                Content content = new Content.From(bytes);
+                                try {
+                                    this.storage.save(
+                                        new Key.From(tarName),
+                                        content
+                                    ).get();
+                                } catch (InterruptedException | ExecutionException e) {
+                                    throw new RuntimeException(e);
+                                }
+                                System.out.println("published " + tarName);
+                                return bytes;
+                            }
                         ).thenApply(nothing -> new RsWithBody(
                                 new RsWithStatus(RsStatus.CREATED),
-/*
-                                    """
-                                            {
-                                                "version": "0.1.0",
-                                                "has_docs": false,
-                                                "url": "http://localhost:8080/packages/kv/releases/0.1.0",
-                                                "package_url": "http://localhost:8080/packages/kv",
-                                                "html_url": "https://hex.pm/packages/kv/0.1.0",
-                                                "docs_html_url": "https://hexdocs.pm/kv/0.1.0",
-                                                "meta": {
-                                                  "build_tools": ["mix"]
-                                                },
-                                                "downloads": 16,
-                                                "inserted_at": "2014-04-23T18:58:54Z",
-                                                "updated_at": "2014-04-23T18:58:54Z"
+                                """
+                                        {
+                                            "version": "0.1.0",
+                                            "has_docs": false,
+                                            "url": "https://hex.pm/api/packages/kv/releases/0.1.0",
+                                            "package_url": "https://hex.pm/api/packages/kv",
+                                            "html_url": "https://hex.pm/packages/kv/0.1.0",
+                                            "docs_html_url": "https://hexdocs.pm/kv/0.1.0",
+                                            "meta": {
+                                              "build_tools": ["mix"]
+                                            },
+                                            "dependencies": {
+                                              "cowboy": {
+                                                "requirement": "~> 1.0",
+                                                "optional": true,
+                                                "app": "cowboy"
                                               }
-                                        """.getBytes()
-*/
-                        response
-                                )
-                    )
-                );
+                                            }
+                                            "downloads": 16,
+                                            "inserted_at": "2014-04-23T18:58:54Z",
+                                            "updated_at": "2014-04-23T18:58:54Z"
+                                          }
+                                    """.getBytes()
+                            )
+                        ));
             } catch (Exception e) {
               System.out.println("e.getMessage() = " + e.getMessage());
               throw new RuntimeException("ERROR in /publish = ", e);
@@ -177,6 +187,35 @@ public class LocalHexSlice implements Slice {
         } else {
             return new RsWithStatus(RsStatus.BAD_REQUEST);
         }
+    }
+
+    /**
+     * Reads ByteBuffer-contents of Publisher to byte array
+     */
+    private byte[] asBytes(Publisher<ByteBuffer> body) {
+        final ByteBuffer buffer = Flowable.fromPublisher(body)
+            .toList()
+            .blockingGet()
+            .stream()
+            .reduce(
+                (left, right) -> {
+                    left.mark();
+                    right.mark();
+                    final ByteBuffer concat = ByteBuffer.allocate(
+                        left.remaining() + right.remaining()
+                    ).put(left).put(right);
+                    left.reset();
+                    right.reset();
+                    concat.flip();
+                    return concat;
+                }
+            )
+            .orElse(ByteBuffer.allocate(0));
+        final byte[] bytes = new byte[buffer.remaining()];
+        buffer.mark();
+        buffer.get(bytes);
+        buffer.reset();
+        return bytes;
     }
 
     public CompletableFuture<ByteBuffer> accept(final Publisher<ByteBuffer> body) {//todo need only for testing protobuf
