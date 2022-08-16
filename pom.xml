@@ -77,6 +77,8 @@ SOFTWARE.
     <slf4j-simple.version>2.0.0-alpha7</slf4j-simple.version>
     <testcontainers.version>1.17.3</testcontainers.version>
     <vertx.server.version>1.0.0</vertx.server.version>
+    <etp.version>0.6-SNAPSHOT</etp.version>
+    <commons-compress.version>1.21</commons-compress.version>
   </properties>
   <repositories>
     <repository>
@@ -140,12 +142,12 @@ SOFTWARE.
     <dependency>
       <groupId>com.github.metadave</groupId>
       <artifactId>etp</artifactId>
-      <version>0.6-SNAPSHOT</version>
+      <version>${etp.version}</version>
     </dependency>
     <dependency>
       <groupId>org.apache.commons</groupId>
       <artifactId>commons-compress</artifactId>
-      <version>1.21</version>
+      <version>${commons-compress.version}</version>
     </dependency>
   </dependencies>
 </project>

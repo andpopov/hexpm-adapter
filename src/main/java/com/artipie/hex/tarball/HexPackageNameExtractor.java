@@ -62,7 +62,7 @@ public class HexPackageNameExtractor {
                 }
             }
         } catch (IOException e) {
-            throw new RuntimeException(e);
+            throw new RuntimeException("Cannot read content of 'metadata.config' from tar-archive", e);
         }
         return Optional.ofNullable(bytes);
     }

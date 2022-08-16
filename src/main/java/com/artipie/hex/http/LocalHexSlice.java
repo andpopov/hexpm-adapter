@@ -141,11 +141,10 @@ public class LocalHexSlice implements Slice {
                         .supplyAsync(() -> {
                                 byte[] bytes = asBytes(body);
                                 String tarName = HexPackageNameExtractor.extract(bytes).orElseThrow();
-                                Content content = new Content.From(bytes);
                                 try {
                                     this.storage.save(
                                         new Key.From(tarName),
-                                        content
+                                        new Content.From(bytes)
                                     ).get();
                                 } catch (InterruptedException | ExecutionException e) {
                                     throw new RuntimeException(e);

@@ -106,7 +106,7 @@ final public class MetadataConfig {
                 return new MetadataConfig(tuples);
             }
         } catch (IOException | ETP.ParseException e) {
-            throw new RuntimeException(e);
+            throw new RuntimeException("Cannot parse content of metadata.config", e);
         }
     }
 
