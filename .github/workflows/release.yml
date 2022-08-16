@@ -2,7 +2,7 @@ name: Create Maven release
 on:
   push:
     tags:
-      - 'v*'
+      - '*'
 jobs:
   build:
     name: Build release
@@ -11,14 +11,15 @@ jobs:
       - uses: actions/checkout@v2.3.3
       - uses: actions/setup-java@v2
         with:
-          java-version: 8
+          java-version: 17
           distribution: adopt
       - uses: actions/cache@v2
         with:
           path: ~/.m2/repository
-          key: ${{ runner.os }}-maven-${{ hashFiles('**/pom.xml') }}
+          key: ${{ runner.os }}-jdk-11-maven-${{ hashFiles('**/pom.xml') }}
           restore-keys: |
-            ${{ runner.os }}-maven-
+            ${{ runner.os }}-jdk-11-maven-
+          runs-on: ubuntu-latest
       - name: Import GPG key
         uses: crazy-max/ghaction-import-gpg@v3
         with:
@@ -50,7 +51,9 @@ jobs:
               }
             ]
       - name: Deploy artifacts
-        run: mvn deploy -Partipie,publish,sonatype,gpg-sign -DskipITs --errors
+        run: mvn deploy -B -Partipie,sonatype,gpg-sign -DskipITs --errors
+        env:
+          MAVEN_OPTS: --add-opens=java.base/java.util=ALL-UNNAMED --add-opens=java.base/java.lang.reflect=ALL-UNNAMED --add-opens=java.base/java.text=ALL-UNNAMED --add-opens=java.desktop/java.awt.font=ALL-UNNAMED
       - name: Create Github Release
         id: create_release
         uses: actions/create-release@v1
