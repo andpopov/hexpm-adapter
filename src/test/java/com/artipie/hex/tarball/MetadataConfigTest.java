@@ -10,7 +10,7 @@ import java.io.IOException;
 public class MetadataConfigTest {
     @Test
     public void readApp() throws IOException {
-        MetadataConfig mconf = MetadataConfig.create(ResourceUtil.asPath("tarball/metadata.config"));
+        MetadataConfig mconf = MetadataConfig.create(ResourceUtil.asPath("tarballs/metadata.config"));
 
         String app = mconf.getApp();
         MatcherAssert.assertThat(
@@ -23,7 +23,7 @@ public class MetadataConfigTest {
 
     @Test
     public void readVersion() throws IOException {
-        MetadataConfig mconf = MetadataConfig.create(ResourceUtil.asPath("tarball/metadata.config"));
+        MetadataConfig mconf = MetadataConfig.create(ResourceUtil.asPath("tarballs/metadata.config"));
 
         String version = mconf.getVersion();
         MatcherAssert.assertThat(

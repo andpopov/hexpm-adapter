@@ -5,8 +5,8 @@
 package com.artipie.hex.http;
 
 import com.artipie.asto.Storage;
-import static com.artipie.hex.http.DownloadSlice.PACKAGES;
-import static com.artipie.hex.http.DownloadSlice.TARBALLS;
+import static com.artipie.hex.http.DownloadSlice.PACKAGES_PTRN;
+import static com.artipie.hex.http.DownloadSlice.TARBALLS_PTRN;
 import static com.artipie.hex.http.UploadSlice.PUBLISH;
 import static com.artipie.hex.http.UserSlice.USERS;
 import com.artipie.http.Slice;
@@ -18,8 +18,6 @@ import com.artipie.http.auth.Permissions;
 import com.artipie.http.rq.RqMethod;
 import com.artipie.http.rs.StandardRs;
 import com.artipie.http.rt.ByMethodsRule;
-import static com.artipie.http.rt.ByMethodsRule.Standard.ALL_READ;
-import static com.artipie.http.rt.ByMethodsRule.Standard.ALL_WRITE;
 import com.artipie.http.rt.RtRule;
 import com.artipie.http.rt.RtRulePath;
 import com.artipie.http.rt.SliceRoute;
@@ -49,30 +47,30 @@ public class HexSlice extends Slice.Wrap {
     ) {
         super(
             new SliceRoute(
-                new RtRulePath(
-                    new RtRule.Any(
-                        ALL_READ,
-                        ALL_WRITE
-//                            new ByMethodsRule(RqMethod.GET),
-//                            new ByMethodsRule(RqMethod.PUT),
-//                            new ByMethodsRule(RqMethod.DELETE),
-//                            new ByMethodsRule(RqMethod.HEAD),
-//                            new ByMethodsRule(RqMethod.OPTIONS),
-//                            new ByMethodsRule(RqMethod.PATCH),
-//                            new ByMethodsRule(RqMethod.POST)
-                    ),
-                    new BasicAuthSlice(
-                        new UserSlice(storage),//todo
-                        users,
-                        new Permission.ByName(perms, Action.Standard.READ)
-                    )
-                ),
+//                new RtRulePath(//todo for testing
+//                    new RtRule.Any(
+//                        ALL_READ,
+//                        ALL_WRITE
+////                            new ByMethodsRule(RqMethod.GET),
+////                            new ByMethodsRule(RqMethod.PUT),
+////                            new ByMethodsRule(RqMethod.DELETE),
+////                            new ByMethodsRule(RqMethod.HEAD),
+////                            new ByMethodsRule(RqMethod.OPTIONS),
+////                            new ByMethodsRule(RqMethod.PATCH),
+////                            new ByMethodsRule(RqMethod.POST)
+//                    ),
+//                    new BasicAuthSlice(
+//                        new LocalHexSlice(storage),
+//                        users,
+//                        new Permission.ByName(perms, Action.Standard.READ)
+//                    )
+//                ),
                 new RtRulePath(
                     new RtRule.All(
                         new ByMethodsRule(RqMethod.GET),
                         new RtRule.Any(
-                            new RtRule.ByPath(PACKAGES),
-                            new RtRule.ByPath(TARBALLS)
+                            new RtRule.ByPath(PACKAGES_PTRN),
+                            new RtRule.ByPath(TARBALLS_PTRN)
                         )
                     ),
                         new BasicAuthSlice(

@@ -12,6 +12,7 @@ import com.artipie.http.rs.RsStatus;
 import com.artipie.http.rs.RsWithStatus;
 import java.nio.ByteBuffer;
 import java.util.Map;
+import java.util.regex.Pattern;
 import org.reactivestreams.Publisher;
 
 /**
@@ -34,7 +35,7 @@ public class UserSlice implements Slice {
     /**
      * Path to users.
      */
-    static final String USERS = "/users/";
+    static final Pattern USERS = Pattern.compile("/users/(?<user>\\S+)");
 
 
     @Override
