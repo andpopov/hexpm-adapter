@@ -16,6 +16,7 @@ import com.artipie.http.rq.RequestLineFrom;
 import com.artipie.http.rs.RsFull;
 import com.artipie.http.rs.RsStatus;
 import com.artipie.http.rs.StandardRs;
+import com.jcabi.log.Logger;
 import java.nio.ByteBuffer;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
@@ -84,6 +85,7 @@ public class DownloadSlice implements Slice {
                                     value
                                 )
                         );
+                        Logger.info(this, "Get resource by ", key.string());
                     } else {
                         res = CompletableFuture.completedFuture(StandardRs.NOT_FOUND);
                     }

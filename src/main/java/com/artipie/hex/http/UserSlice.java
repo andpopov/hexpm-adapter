@@ -16,7 +16,8 @@ import java.util.regex.Pattern;
 import org.reactivestreams.Publisher;
 
 /**
- * This slice returns content as bytes by Key from request path.
+ * This slice returns content about user in erlang format.
+ * @since 0.1
  */
 public class UserSlice implements Slice {
     /**
