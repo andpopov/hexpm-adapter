@@ -12,7 +12,7 @@ import java.util.Optional;
 public class HexPackageNameExtractorTest {
     @Test
     public void readHexPackageName() throws IOException {
-        Optional<String> packageName = HexPackageNameExtractor.extract(Files.newInputStream(ResourceUtil.asPath("tarball/decimal-2.0.0.tar")));
+        Optional<String> packageName = HexPackageNameExtractor.extract(Files.newInputStream(ResourceUtil.asPath("tarballs/decimal-2.0.0.tar")));
 
         MatcherAssert.assertThat(
             packageName.orElse(""),
