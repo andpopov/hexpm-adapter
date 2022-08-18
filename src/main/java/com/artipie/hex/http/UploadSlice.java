@@ -37,7 +37,7 @@ public class UploadSlice implements Slice {
     /**
      * Path to publish.
      */
-    static final Pattern PUBLISH = Pattern.compile("(/repos/)?(?<org>.+)?/publish\\?replace=(?<replace>true|false)");
+    static final Pattern PUBLISH = Pattern.compile("(/repos/)?(?<org>.+)?/publish");
 
     @Override
     public Response response(
