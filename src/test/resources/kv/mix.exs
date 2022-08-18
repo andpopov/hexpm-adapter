@@ -23,7 +23,7 @@ defmodule Kv.MixProject do
   # Run "mix help deps" to learn about dependencies.
   defp deps do
     [
-      #{:decimal, "~> 2.0.0", repo: "my_repo"}
+      {:decimal, "~> 2.0.0", repo: "my_repo"},
       {:ex_doc, ">= 0.0.0", only: :dev, runtime: false}
     ]
   end
