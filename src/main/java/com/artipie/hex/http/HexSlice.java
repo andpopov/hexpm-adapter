@@ -5,13 +5,19 @@
 package com.artipie.hex.http;
 
 import com.artipie.asto.Storage;
+import static com.artipie.hex.http.DownloadSlice.PACKAGES;
+import static com.artipie.hex.http.DownloadSlice.TARBALLS;
+import static com.artipie.hex.http.UploadSlice.PUBLISH;
+import static com.artipie.hex.http.UserSlice.USERS;
 import com.artipie.http.Slice;
 import com.artipie.http.auth.Action;
 import com.artipie.http.auth.Authentication;
 import com.artipie.http.auth.BasicAuthSlice;
 import com.artipie.http.auth.Permission;
 import com.artipie.http.auth.Permissions;
+import com.artipie.http.rq.RqMethod;
 import com.artipie.http.rs.StandardRs;
+import com.artipie.http.rt.ByMethodsRule;
 import static com.artipie.http.rt.ByMethodsRule.Standard.ALL_READ;
 import static com.artipie.http.rt.ByMethodsRule.Standard.ALL_WRITE;
 import com.artipie.http.rt.RtRule;
@@ -56,9 +62,45 @@ public class HexSlice extends Slice.Wrap {
 //                            new ByMethodsRule(RqMethod.POST)
                     ),
                     new BasicAuthSlice(
-                        new LocalHexSlice(storage),
+                        new UserSlice(storage),//todo
                         users,
                         new Permission.ByName(perms, Action.Standard.READ)
+                    )
+                ),
+                new RtRulePath(
+                    new RtRule.All(
+                        new ByMethodsRule(RqMethod.GET),
+                        new RtRule.Any(
+                            new RtRule.ByPath(PACKAGES),
+                            new RtRule.ByPath(TARBALLS)
+                        )
+                    ),
+                        new BasicAuthSlice(
+                            new DownloadSlice(storage),
+                            users,
+                            new Permission.ByName(perms, Action.Standard.READ)
+                    )
+                ),
+                new RtRulePath(
+                    new RtRule.All(
+                        new ByMethodsRule(RqMethod.GET),
+                        new RtRule.ByPath(USERS)
+                    ),
+                        new BasicAuthSlice(
+                            new UserSlice(storage),
+                            users,
+                            new Permission.ByName(perms, Action.Standard.READ)
+                    )
+                ),
+                new RtRulePath(
+                    new RtRule.All(
+                        new ByMethodsRule(RqMethod.POST),
+                        new RtRule.ByPath(PUBLISH)
+                    ),
+                        new BasicAuthSlice(
+                            new UploadSlice(storage),
+                            users,
+                            new Permission.ByName(perms, Action.Standard.READ)
                     )
                 ),
                 new RtRulePath(

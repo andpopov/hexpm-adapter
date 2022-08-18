@@ -8,24 +8,22 @@ import com.artipie.asto.Content;
 import com.artipie.asto.Key;
 import com.artipie.asto.Storage;
 import com.artipie.hex.tarball.HexPackageNameExtractor;
-import com.artipie.http.Headers;
 import com.artipie.http.Response;
 import com.artipie.http.Slice;
 import com.artipie.http.async.AsyncResponse;
-import com.artipie.http.headers.Header;
-import com.artipie.http.rs.RsFull;
 import com.artipie.http.rs.RsStatus;
 import com.artipie.http.rs.RsWithBody;
 import com.artipie.http.rs.RsWithStatus;
 import io.reactivex.Flowable;
-
-import java.io.*;
-import java.net.HttpURLConnection;
-import java.net.URL;
+import java.io.ByteArrayInputStream;
+import java.io.ByteArrayOutputStream;
+import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
+import java.util.zip.GZIPInputStream;
+import java.util.zip.GZIPOutputStream;
 import org.reactivestreams.Publisher;
 
 public class LocalHexSlice implements Slice {
@@ -49,92 +47,46 @@ public class LocalHexSlice implements Slice {
         System.out.println("line = " + line);//todo debug print
         System.out.println("headers = " + headers);//todo debug print
 
-        if (line.contains("/tarballs/decimal-2.0.0.tar")) {
-            System.out.println("inside tarballs");//todo debug print
-            try {
-                return
-                    new AsyncResponse(
-                        this.storage.value(new Key.From("binary", "decimal-2.0.0.tar"))
-                            .thenApply(
-                                value -> new RsFull(
-                                    RsStatus.OK,
-                                    new Headers.From(
-                                        new Header("Content-Type", "application/octet-stream")
-                                        ),
-                                    value
-                                )
-                            )
-                    );
-            } catch (Exception e) {
-                System.out.println("e.getMessage() = " + e.getMessage());
-                throw new RuntimeException("ERROR in /tarballs/ = ", e);
-            }
-        } else if (line.contains("/packages/decimal")) {
-            System.out.println("inside packages");
-            HttpURLConnection con = null;
-            try {
-                con = (HttpURLConnection) new URL("https://repo.hex.pm/packages/aba").openConnection();//todo proxy to hexpm with archive
-                con.setRequestMethod("GET");
-                con.setDoInput(true);
-                InputStream inputStr = con.getInputStream();
-                byte[] response = inputStr.readAllBytes();
+        if (line.contains("/publish")) {
 
-//                PackageOuterClass.Package package1 =
-//                    PackageOuterClass.Package.parseFrom(response);
-//
-//                PackageOuterClass.Package package2 =
-//                    PackageOuterClass.Package.parseFrom(accept(this.storage.value(new Key.From("binary", "decimal")).get()).get());
+/*
+            final String name = "decimal";
+            final String version = "2.0.0";
+            final String innerChecksum = "A78296E617B0F5DD4C6CAF57C714431347912FFB1D0842E998E9792B5642D697";//todo CHECKSUM form file
+            final String outerChecksum = DigestUtils.sha256Hex(asBytes(body));
 
-                return
-                    new AsyncResponse(
-                        this.storage.value(new Key.From("binary", "decimal"))
-                            .thenApply(
-                                value -> new RsFull(
-                                    RsStatus.OK,
-                                    new Headers.From(
-                                        new Header("Content-Type", "application/octet-stream")
-                                    ),
-                                    value
-                                )
-                            )
-                    );
-            } catch (Exception e) {
-                System.out.println("e.getMessage() = " + e.getMessage());
-                throw new RuntimeException(String.format("ERROR in /packages/ = %s", e.getMessage()), e);
-            } finally {
-                if (con != null) {
-                    con.disconnect();
-                }
-            }
-        } else if (line.contains("/users/me")) {
-            System.out.println("inside packages");
-            HttpURLConnection con = null;
-            try {
-                con = (HttpURLConnection) new URL("https://hex.pm/api/users/swizbiz").openConnection();//todo proxy to hexpm
-                con.setRequestMethod("GET");
-                con.setRequestProperty("Accept", "application/vnd.hex+erlang");
-                con.setRequestProperty("Authorization", "824650fa6e7687b54a95c43d2bbe8e59");
-                con.setDoInput(true);
-                InputStream inputStr = con.getInputStream();
-                byte[] response = inputStr.readAllBytes();
+            Key.From key = new Key.From("packages", name);
+            final AtomicReference<List<PackageOuterClass.Release>> releasesList = new AtomicReference<>();
+            this.storage.exists(key)
+                .thenApply(exist -> {
+                    if (exist) {
+                        storage.value(key).thenCompose( content -> {
+                            byte[] bytes = decompressGzip(asBytes(content));
+                            SignedOuterClass.Signed existSigned = SignedOuterClass.Signed.parseFrom(bytes);
+                            PackageOuterClass.Package existPckg = PackageOuterClass.Package.parseFrom(existSigned.getPayload());
+                            releasesList.set(existPckg.getReleasesList());
+                            return new CompletableFuture<>();
+                        });
+                    }
+                    PackageOuterClass.Release release = PackageOuterClass.Release.newBuilder()
+                        .setVersion(version)
+                        .setInnerChecksum(ByteString.copyFrom(Hex.decodeHex(innerChecksum)))
+                        .setOuterChecksum(ByteString.copyFrom(Hex.decodeHex(outerChecksum)))
+                        .build();
+                    PackageOuterClass.Package pckg = PackageOuterClass.Package.newBuilder()
+                        .setName(name)
+                        .setRepository("artipie")//todo repoName
+                        .addAllReleases(releasesList.get())
+                        .addReleases(release)
+                        .build();
+                    SignedOuterClass.Signed signed = SignedOuterClass.Signed.newBuilder()
+                        .setPayload(ByteString.copyFrom(pckg.toByteArray()))
+                        .setSignature(ByteString.EMPTY)
+                        .build();
+                    return this.storage.save(key, new Content.From(compressGzip(signed.toByteArray())));
+                });
 
-                return new RsFull(RsStatus.NO_CONTENT, new Headers.From(//todo workaround with NO_CONTENT
-//                    new Header("Content-length", String.valueOf(response.length)),
-                    new Header("Content-Type", "application/vnd.hex+erlang; charset=UTF-8") //todo application/vnd.hex+<needed format> implement this headers
-                ),
-                    Content.EMPTY
-//                    new Content.From(response)
-                );
-            } catch (Exception e) {
-                System.out.println("e.getMessage() = " + e.getMessage());
-                throw new RuntimeException("ERROR in /users/ = ", e);
-            } finally {
-                if (con != null) {
-                    con.disconnect();
-                }
-            }
-        } else if (line.contains("/publish")) {
-            System.out.println("inside publish");
+*/
             try {
                 return new AsyncResponse(
                     CompletableFuture
@@ -153,30 +105,8 @@ public class LocalHexSlice implements Slice {
                                 return bytes;
                             }
                         ).thenApply(nothing -> new RsWithBody(
-                                new RsWithStatus(RsStatus.CREATED),
-                                """
-                                        {
-                                            "version": "0.1.0",
-                                            "has_docs": false,
-                                            "url": "https://hex.pm/api/packages/kv/releases/0.1.0",
-                                            "package_url": "https://hex.pm/api/packages/kv",
-                                            "html_url": "https://hex.pm/packages/kv/0.1.0",
-                                            "docs_html_url": "https://hexdocs.pm/kv/0.1.0",
-                                            "meta": {
-                                              "build_tools": ["mix"]
-                                            },
-                                            "dependencies": {
-                                              "cowboy": {
-                                                "requirement": "~> 1.0",
-                                                "optional": true,
-                                                "app": "cowboy"
-                                              }
-                                            }
-                                            "downloads": 16,
-                                            "inserted_at": "2014-04-23T18:58:54Z",
-                                            "updated_at": "2014-04-23T18:58:54Z"
-                                          }
-                                    """.getBytes()
+                            new RsWithStatus(RsStatus.CREATED),
+                            "".getBytes()
                             )
                         ));
             } catch (Exception e) {
@@ -186,6 +116,26 @@ public class LocalHexSlice implements Slice {
         } else {
             return new RsWithStatus(RsStatus.BAD_REQUEST);
         }
+    }
+    private static byte[] compressGzip(byte[] data) {
+        ByteArrayOutputStream baos = new ByteArrayOutputStream(data.length);
+        try (GZIPOutputStream gzipos = new GZIPOutputStream(baos, data.length)) {
+            gzipos.write(data);
+        } catch (IOException exception) {
+            throw new RuntimeException("Error when compressing gzip archive", exception);
+        }
+        return baos.toByteArray();
+    }
+
+    private static byte[] decompressGzip(byte[] gzippedBytes) {
+        try (GZIPInputStream gzipis = new GZIPInputStream(new ByteArrayInputStream(gzippedBytes), gzippedBytes.length);
+             ByteArrayOutputStream baos = new ByteArrayOutputStream(gzippedBytes.length)) {
+            baos.writeBytes(gzipis.readAllBytes());
+            return baos.toByteArray();
+        } catch (IOException e) {
+            throw new RuntimeException("Error when decompressing gzip archive", e);
+        }
+
     }
 
     /**
@@ -215,27 +165,5 @@ public class LocalHexSlice implements Slice {
         buffer.get(bytes);
         buffer.reset();
         return bytes;
-    }
-
-    public CompletableFuture<ByteBuffer> accept(final Publisher<ByteBuffer> body) {//todo need only for testing protobuf
-        return CompletableFuture.supplyAsync(() -> {
-            final ByteBuffer buffer = Flowable.fromPublisher(body).toList().blockingGet().stream().reduce((left, right) -> {
-                left.mark();
-                right.mark();
-                final ByteBuffer concat = ByteBuffer.allocate(left.remaining() + right.remaining()).put(left).put(right);
-                left.reset();
-                right.reset();
-                concat.flip();
-                return concat;
-            }).orElse(ByteBuffer.allocate(0));
-//                final byte[] bytes = new byte[buffer.remaining()];
-//                buffer.mark();
-//                buffer.get(bytes);
-//                buffer.reset();
-//                AtomicReference<byte[]> container = new AtomicReference<>();
-//                container.set(bytes);
-            return buffer;
-        });
-
     }
 }

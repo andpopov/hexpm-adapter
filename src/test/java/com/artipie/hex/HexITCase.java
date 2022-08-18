@@ -23,6 +23,7 @@ import org.hamcrest.MatcherAssert;
 import org.hamcrest.core.StringContains;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.condition.EnabledOnOs;
 import org.junit.jupiter.api.condition.OS;
 import org.junit.jupiter.api.io.TempDir;
@@ -74,7 +75,7 @@ public class HexITCase {
 
     @ParameterizedTest
     @ValueSource(booleans = {true, /*false*/})//todo
-    void downloadsDependency(final boolean anonymous) throws IOException, InterruptedException {
+    void downloadOneDependency(final boolean anonymous) throws IOException, InterruptedException {
         this.init(anonymous);
         this.addArtifactToArtipie();
 
@@ -85,21 +86,56 @@ public class HexITCase {
             )
         );
     }
-/*
-//todo use it when dependency already have downloaded in project
+
+    @Disabled
+    @ParameterizedTest
+    @ValueSource(booleans = {true, /*false*/})//todo
+    void downloadAllDependencies(final boolean anonymous) throws IOException, InterruptedException {
+        this.init(anonymous);
+        this.addArtifactToArtipie();
 
         MatcherAssert.assertThat(
-            this.exec("mix", "hex.deps", "get"),
-            new StringContainsInOrder(List.of(
-                "Resolving Hex dependencies...",
-                "Dependency resolution completed:",
-                "Unchanged:",
-                "my_artifact 0.4.0",
-                "All dependencies are up to date"
-            ))
-         );
-*/
+            "Get dependency for the first time",
+            this.exec("mix", "deps.get"),
+            new StringContains("New:\n  decimal 2.0.0")
+            //Resolving Hex dependencies...
+            //Dependency resolution completed:
+            //New:
+            //  decimal 2.0.0
+            //  earmark_parser 1.4.26
+            //  ex_doc 0.28.4
+            //  makeup 1.1.0
+            //  makeup_elixir 0.16.0
+            //  makeup_erlang 0.1.1
+            //  nimble_parsec 1.2.3
+            //* Getting decimal (Hex package)
+            //* Getting ex_doc (Hex package)
+            //* Getting earmark_parser (Hex package)
+            //* Getting makeup_elixir (Hex package)
+            //* Getting makeup_erlang (Hex package)
+            //* Getting makeup (Hex package)
+            //* Getting nimble_parsec (Hex package)
+        );
 
+        MatcherAssert.assertThat(
+            "Get dependency for the second time",
+            this.exec("mix", "hex.deps", "get"),
+            new StringContains("Unchanged:\n  decimal 2.0.0")
+            //Resolving Hex dependencies...
+            //Dependency resolution completed:
+            //Unchanged:
+            //  decimal 2.0.0
+            //  earmark_parser 1.4.26
+            //  ex_doc 0.28.4
+            //  makeup 1.1.0
+            //  makeup_elixir 0.16.0
+            //  makeup_erlang 0.1.1
+            //  nimble_parsec 1.2.3
+            //All dependencies are up to date
+        );
+    }
+
+    @Disabled
     @ParameterizedTest
     @ValueSource(booleans = {true, /*false*/})//todo
     void uploadsDependency(final boolean anonymous) throws IOException, InterruptedException {
