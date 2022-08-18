@@ -100,7 +100,7 @@ public class HexSlice extends Slice.Wrap {
                         new BasicAuthSlice(
                             new UploadSlice(storage),
                             users,
-                            new Permission.ByName(perms, Action.Standard.READ)
+                            new Permission.ByName(perms, Action.Standard.WRITE)
                     )
                 ),
                 new RtRulePath(
