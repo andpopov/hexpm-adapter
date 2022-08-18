@@ -15,6 +15,11 @@
 
 Hexpm adapter for Elixir and erlang packages.
 
+For generate classes, first use the command:
+```shell
+mvn compile
+```
+
 If you have any question or suggestions, do not hesitate to [create an issue](https://github.com/artipie/hexpm-adapter/issues/new) or contact us in
 [Telegram](https://t.me/artipie).  
 Artipie [roadmap](https://github.com/orgs/artipie/projects/3).
