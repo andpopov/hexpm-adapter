@@ -19,6 +19,7 @@ import com.artipie.http.rs.StandardRs;
 import java.nio.ByteBuffer;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
+import java.util.regex.Pattern;
 import org.reactivestreams.Publisher;
 
 /**
@@ -41,12 +42,22 @@ public class DownloadSlice implements Slice {
     /**
      * Path to packages.
      */
-    static final String PACKAGES = "/packages/";
+    static final String PACKAGES = "packages";
+
+    /**
+     * Pattern for packages.
+     */
+    static final Pattern PACKAGES_PTRN = Pattern.compile(String.format("/%s/\\S+", PACKAGES));
 
     /**
      * Path to tarballs.
      */
-    static final String TARBALLS = "/tarballs/";
+    static final String TARBALLS = "tarballs";
+
+    /**
+     * Pattern for tarballs.
+     */
+    static final Pattern TARBALLS_PTRN = Pattern.compile(String.format("/%s/\\S+", TARBALLS));
 
 
     @Override
@@ -55,7 +66,10 @@ public class DownloadSlice implements Slice {
         final Iterable<Map.Entry<String, String>> headers,
         final Publisher<ByteBuffer> body
     ) {
-        Key.From key = new Key.From(new RequestLineFrom(line).uri().getPath());
+        Key.From key = new Key.From(
+            new RequestLineFrom(line).uri().getPath()
+                .replaceFirst("/", "")
+        );
         return new AsyncResponse(
             this.storage.exists(key).thenCompose(
                 exist -> {

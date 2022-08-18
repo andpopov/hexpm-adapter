@@ -206,8 +206,10 @@ public class HexITCase {
     }
 
     private void addArtifactToArtipie() {
-        new TestResource("binary")
-            .addFilesTo(this.storage, new Key.From("binary"));
+        new TestResource("packages")
+            .addFilesTo(this.storage, new Key.From("packages"));
+        new TestResource("tarballs")
+            .addFilesTo(this.storage, new Key.From("tarballs"));
     }
 
     private Pair<Permissions, Authentication> auth(final boolean anonymous) {
