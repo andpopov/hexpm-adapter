@@ -2,3 +2,6 @@ target/
 .idea/
 *.iml
 .DS_Store
+
+# generated protobuf files
+/src/main/java/com/artipie/proto/generated/
