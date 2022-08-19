@@ -32,7 +32,6 @@ class UploadSliceTest {
     @BeforeEach
     private void init() {
         storage = new InMemoryStorage();
-        addFilesTo("binary", storage, new Key.From("binary"));
     }
 
     @Test
@@ -56,7 +55,7 @@ class UploadSliceTest {
         reqHeaders.put("accept", "application/vnd.hex+erlang");
         reqHeaders.put("content-type", "application/octet-stream");
 
-        AsyncResponse response = (AsyncResponse) new UploadSlice(storage).response(line, reqHeaders.entrySet(), new Content.From(Files.readAllBytes(asPath("binary/decimal-2.0.0.tar"))));
+        AsyncResponse response = (AsyncResponse) new UploadSlice(storage).response(line, reqHeaders.entrySet(), new Content.From(Files.readAllBytes(asPath("tarballs/decimal-2.0.0.tar"))));
         response.send((status, headers, body) -> {
             System.out.println("\nResponse:");
             System.out.println("status:" + status);
