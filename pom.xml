@@ -71,14 +71,19 @@ SOFTWARE.
   <properties>
     <maven.compiler.source>17</maven.compiler.source>
     <maven.compiler.target>17</maven.compiler.target>
-    <artipie-asto-version>v1.12.3</artipie-asto-version>
-    <artipie-http-version>v1.1.3</artipie-http-version>
-    <protobuf-version>3.21.4</protobuf-version>
-    <slf4j-simple.version>2.0.0-alpha7</slf4j-simple.version>
+<!--    dependencies -->
+    <artipie-asto.version>v1.12.3</artipie-asto.version>
+    <artipie-http.version>v1.1.4</artipie-http.version>
+    <protobuf.version>3.21.5</protobuf.version>
+    <slf4j-simple.version>2.0.0-beta1</slf4j-simple.version>
     <testcontainers.version>1.17.3</testcontainers.version>
-    <vertx.server.version>1.0.0</vertx.server.version>
+    <vertx-server.version>1.0.0</vertx-server.version>
     <etp.version>0.6-SNAPSHOT</etp.version>
     <commons-compress.version>1.21</commons-compress.version>
+<!--    plugins -->
+    <maven-compiler-plugin.version>3.10.1</maven-compiler-plugin.version>
+    <os-maven-plugin.version>1.7.0</os-maven-plugin.version>
+    <protobuf-maven-plugin.version>0.6.1</protobuf-maven-plugin.version>
   </properties>
   <repositories>
     <repository>
@@ -94,12 +99,12 @@ SOFTWARE.
     <dependency>
       <groupId>com.artipie</groupId>
       <artifactId>http</artifactId>
-      <version>${artipie-http-version}</version>
+      <version>${artipie-http.version}</version>
     </dependency>
     <dependency>
       <groupId>com.artipie</groupId>
       <artifactId>asto</artifactId>
-      <version>${artipie-asto-version}</version>
+      <version>${artipie-asto.version}</version>
     </dependency>
     <dependency>
       <groupId>org.slf4j</groupId>
@@ -108,7 +113,7 @@ SOFTWARE.
     <dependency>
       <groupId>com.google.protobuf</groupId>
       <artifactId>protobuf-java</artifactId>
-      <version>${protobuf-version}</version>
+      <version>${protobuf.version}</version>
     </dependency>
     <dependency>
       <groupId>com.github.metadave</groupId>
@@ -124,7 +129,7 @@ SOFTWARE.
     <dependency>
       <groupId>com.artipie</groupId>
       <artifactId>vertx-server</artifactId>
-      <version>${vertx.server.version}</version>
+      <version>${vertx-server.version}</version>
 <!--      todo add test scope-->
     </dependency>
     <dependency>
@@ -152,24 +157,30 @@ SOFTWARE.
   </dependencies>
 
   <build>
+    <extensions>
+      <extension>
+        <groupId>kr.motd.maven</groupId>
+        <artifactId>os-maven-plugin</artifactId>
+        <version>${os-maven-plugin.version}</version>
+      </extension>
+    </extensions>
     <plugins>
       <plugin>
         <groupId>org.apache.maven.plugins</groupId>
         <artifactId>maven-compiler-plugin</artifactId>
-        <version>3.8.1</version>
+        <version>${maven-compiler-plugin.version}</version>
         <configuration>
-          <source>17</source>
-          <target>17</target>
+          <source>${maven.compiler.source}</source>
+          <target>${maven.compiler.target}</target>
         </configuration>
       </plugin>
       <plugin>
         <groupId>org.xolstice.maven.plugins</groupId>
         <artifactId>protobuf-maven-plugin</artifactId>
-        <version>0.6.1</version>
+        <version>${protobuf-maven-plugin.version}</version>
         <configuration>
           <protoSourceRoot>src/main/resources/proto</protoSourceRoot>
-          <outputDirectory>src/main/java</outputDirectory>
-          <clearOutputDirectory>false</clearOutputDirectory>
+          <protocArtifact>com.google.protobuf:protoc:${protobuf.version}:exe:${os.detected.classifier}</protocArtifact>
         </configuration>
         <executions>
           <execution>
