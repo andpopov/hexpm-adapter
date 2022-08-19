@@ -8,21 +8,18 @@ package com.artipie.hex.http;
 import com.artipie.asto.Content;
 import com.artipie.asto.Key;
 import com.artipie.asto.Storage;
-import com.artipie.asto.fs.FileStorage;
 import com.artipie.asto.memory.InMemoryStorage;
+import com.artipie.hex.ResourceUtil;
 import com.artipie.http.async.AsyncResponse;
 import org.hamcrest.MatcherAssert;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import com.jcabi.log.Logger;
 
 import java.io.IOException;
-import java.net.URISyntaxException;
 import java.nio.file.Files;
-import java.nio.file.Path;
-import java.nio.file.Paths;
 import java.util.HashMap;
 import java.util.Map;
-import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 
@@ -55,31 +52,16 @@ class UploadSliceTest {
         reqHeaders.put("accept", "application/vnd.hex+erlang");
         reqHeaders.put("content-type", "application/octet-stream");
 
-        AsyncResponse response = (AsyncResponse) new UploadSlice(storage).response(line, reqHeaders.entrySet(), new Content.From(Files.readAllBytes(asPath("tarballs/decimal-2.0.0.tar"))));
+        AsyncResponse response = (AsyncResponse) new UploadSlice(storage)
+            .response(line,
+                reqHeaders.entrySet(),
+                new Content.From(Files.readAllBytes(ResourceUtil.asPath("tarballs/decimal-2.0.0.tar"))));
         response.send((status, headers, body) -> {
-            System.out.println("\nResponse:");
-            System.out.println("status:" + status);
-            System.out.println("headers:");
-            headers.forEach(System.out::println);
+            Logger.debug(this, "Response:");
+            Logger.debug(this, "status: %s", status);
+            Logger.debug(this, "headers:");
+            headers.forEach(h -> Logger.debug(this, "%s", h));
             return CompletableFuture.completedFuture(null);
         }).toCompletableFuture().get();
-    }
-
-    public static void addFilesTo(String name, final Storage storage, final Key base) {
-        final Storage resources = new FileStorage(asPath(name));
-        resources.list(Key.ROOT).thenCompose(keys -> CompletableFuture.allOf(keys.stream().map(Key::string).map(item -> resources.value(new Key.From(item)).thenCompose(content -> storage.save(new Key.From(base, item), content))).toArray(CompletableFuture[]::new))).join();
-    }
-
-    /**
-     * Obtains resources from context loader.
-     *
-     * @return File path
-     */
-    public static Path asPath(String name) {
-        try {
-            return Paths.get(Objects.requireNonNull(Thread.currentThread().getContextClassLoader().getResource(name)).toURI());
-        } catch (final URISyntaxException ex) {
-            throw new IllegalStateException("Failed to obtain test recourse", ex);
-        }
     }
 }

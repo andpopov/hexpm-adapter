@@ -23,8 +23,9 @@ import com.artipie.http.rs.RsWithStatus;
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
+import java.net.URI;
 import java.nio.ByteBuffer;
-import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
@@ -76,10 +77,11 @@ public class UploadSlice implements Slice {
         final Iterable<Map.Entry<String, String>> headers,
         final Publisher<ByteBuffer> body
     ) {
+        final URI uri = new RequestLineFrom(line).uri();
         final Matcher pathMatcher = UploadSlice.PUBLISH
-            .matcher(new RequestLineFrom(line).uri().getPath());
+            .matcher(uri.getPath());
         final Matcher queryMatcher = UploadSlice.QUERY
-            .matcher(new RequestLineFrom(line).uri().getQuery());
+            .matcher(uri.getQuery());
         final Response res;
         if (pathMatcher.matches() && queryMatcher.matches()) {
             final String org = pathMatcher.group("org");
@@ -91,78 +93,24 @@ public class UploadSlice implements Slice {
                 final AtomicReference<String> outerChecksum = new AtomicReference<>();
                 final AtomicReference<byte[]> tarContent = new AtomicReference<>();
                 final AtomicReference<List<PackageOuterClass.Release>> releasesList = new AtomicReference<>();
+                final AtomicReference<Key> packagesKey = new AtomicReference<>();
                 return new AsyncResponse(asBytes(body)
-                    .thenAccept(bytes -> {
-                        tarContent.set(bytes);
-                        outerChecksum.set(DigestUtils.sha256Hex(bytes));
-                        TarReader tarReader = new TarReader(bytes);
-                        tarReader
-                            .readEntryContent("metadata.config")
-                            .map(MetadataConfig::create)
-                            .map(metadataConfig -> {
-                                name.set(metadataConfig.getApp());
-                                version.set(metadataConfig.getVersion());
-                                return metadataConfig;
-                            }).orElseThrow();
-                        tarReader.readEntryContent("CHECKSUM")
-                            .map(checksumBytes -> {
-                                innerChecksum.set(new String(checksumBytes));
-                                return checksumBytes;
-                            }).orElseThrow();
-                    })
-                    .thenCompose(nothing -> this.storage.exists(new Key.From("packages", name.get())))
+                    .thenAccept(tarBytes -> readVarsFromTar(tarBytes, name, version, innerChecksum, outerChecksum, tarContent, packagesKey))
+                    .thenCompose(nothing -> this.storage.exists(packagesKey.get()))
                     .thenCompose(packageExists -> {
                         if(packageExists && !replace) {
                             return CompletableFuture.completedFuture(null);
                         } else {
-                            CompletableFuture<Void> extractReleases;
-                            if (packageExists) {
-                                extractReleases = storage.value(new Key.From("packages", name.get()))
-                                    .thenCompose(this::asBytes)
-                                    .thenAccept(gzippedBytes -> {
-                                        byte[] bytes = decompressGzip(gzippedBytes);
-                                        try {
-                                            SignedOuterClass.Signed signed = SignedOuterClass.Signed.parseFrom(bytes);
-                                            PackageOuterClass.Package pkg = PackageOuterClass.Package.parseFrom(signed.getPayload());
-                                            releasesList.set(pkg.getReleasesList());
-                                        } catch (InvalidProtocolBufferException e) {
-                                            throw new RuntimeException("Cannot parse package", e);
-                                        }
-                                    }).thenAccept(nothing -> releasesList.get().removeIf(release -> version.get().equals(release.getVersion())));
-                            } else {
-                                releasesList.set(new ArrayList<>());
-                                extractReleases = CompletableFuture.completedFuture(null);
-                            }
-                            return extractReleases
-                                .thenApply(nothing -> {
-                                    PackageOuterClass.Release release;
-                                    try {
-                                        release = PackageOuterClass.Release.newBuilder()
-                                            .setVersion(version.get())
-                                            .setInnerChecksum(ByteString.copyFrom(Hex.decodeHex(innerChecksum.get())))
-                                            .setOuterChecksum(ByteString.copyFrom(Hex.decodeHex(outerChecksum.get())))
-                                            .build();
-                                    } catch (DecoderException e) {
-                                        throw new RuntimeException("Cannot decode hexed checksum", e);
+                            return
+                                readReleasesListFromStorage(packageExists, releasesList, packagesKey)
+                                .thenAccept(nothing -> {
+                                    if(packageExists) {
+                                        releasesList.get().removeIf(release -> version.get().equals(release.getVersion()));
                                     }
-                                    PackageOuterClass.Package pckg = PackageOuterClass.Package.newBuilder()
-                                        .setName(name.get())
-                                        .setRepository("artipie")//todo repoName
-                                        .addAllReleases(releasesList.get())
-                                        .addReleases(release)
-                                        .build();
-                                    return SignedOuterClass.Signed.newBuilder()
-                                        .setPayload(ByteString.copyFrom(pckg.toByteArray()))
-                                        .setSignature(ByteString.EMPTY)
-                                        .build();
                                 })
-                                .thenCompose(signed -> this.storage.save(
-                                    new Key.From("packages", name.get()),
-                                    new Content.From(compressGzip(signed.toByteArray()))))
-                                .thenCompose(signed -> this.storage.save(
-                                    new Key.From("tarballs", String.format("%s-%s.tar", name, version)),
-                                    new Content.From(tarContent.get()))
-                                );
+                                .thenApply(nothing -> constructSignedPackage(name, version, innerChecksum, outerChecksum, releasesList))
+                                .thenCompose(signedPackage -> saveSignedPackageToStorage(packagesKey, signedPackage))
+                                .thenCompose(nothing -> saveTarContentToStorage(name, version, tarContent));
                         }
                     }).thenApply(nothing ->
                         new RsFull(
@@ -170,7 +118,7 @@ public class UploadSlice implements Slice {
                             new Headers.From(
                                 new Header("Content-Type", "application/vnd.hex+erlang; charset=UTF-8")
                             ),
-                            new Content.From(new byte[0])
+                            Content.EMPTY // todo: return body
                         )
                     )
                 );
@@ -185,9 +133,118 @@ public class UploadSlice implements Slice {
     }
 
     /**
+     * Reads variables from tar-content
+     */
+    private void readVarsFromTar(final byte[] tarBytes,
+                                 final AtomicReference<String> name,
+                                 final AtomicReference<String> version,
+                                 final AtomicReference<String> innerChecksum,
+                                 final AtomicReference<String> outerChecksum,
+                                 final AtomicReference<byte[]> tarContent,
+                                 final AtomicReference<Key> packagesKey) {
+        tarContent.set(tarBytes);
+        outerChecksum.set(DigestUtils.sha256Hex(tarBytes));
+        final TarReader tarReader = new TarReader(tarBytes);
+        tarReader
+            .readEntryContent("metadata.config")
+            .map(MetadataConfig::create)
+            .map(metadataConfig -> {
+                final String app = metadataConfig.getApp();
+                name.set(app);
+                packagesKey.set(new Key.From(DownloadSlice.PACKAGES, app));
+                version.set(metadataConfig.getVersion());
+                return metadataConfig;
+            }).orElseThrow();
+        tarReader.readEntryContent("CHECKSUM")
+            .map(checksumBytes -> {
+                innerChecksum.set(new String(checksumBytes));
+                return checksumBytes;
+            }).orElseThrow();
+    }
+
+    /**
+     * Reads releasesList from storage
+     */
+    private CompletableFuture<Void> readReleasesListFromStorage(final Boolean packageExists,
+                                                                final AtomicReference<List<PackageOuterClass.Release>> releasesList,
+                                                                final AtomicReference<Key> packagesKey) {
+        final CompletableFuture<Void> future;
+        if (packageExists) {
+            future = storage.value(packagesKey.get())
+                .thenCompose(this::asBytes)
+                .thenAccept(gzippedBytes -> {
+                    final byte[] bytes = decompressGzip(gzippedBytes);
+                    try {
+                        final SignedOuterClass.Signed signed = SignedOuterClass.Signed.parseFrom(bytes);
+                        final PackageOuterClass.Package pkg = PackageOuterClass.Package.parseFrom(signed.getPayload());
+                        releasesList.set(pkg.getReleasesList());
+                    } catch (InvalidProtocolBufferException e) {
+                        throw new RuntimeException("Cannot parse package", e);
+                    }
+                });
+        } else {
+            releasesList.set(Collections.emptyList());
+            future = CompletableFuture.completedFuture(null);
+        }
+        return future;
+    }
+
+    /**
+     * Constructs new signed package
+     */
+    private SignedOuterClass.Signed constructSignedPackage(final AtomicReference<String> name,
+                                                           final AtomicReference<String> version,
+                                                           final AtomicReference<String> innerChecksum,
+                                                           final AtomicReference<String> outerChecksum,
+                                                           final AtomicReference<List<PackageOuterClass.Release>> releasesList) {
+        final PackageOuterClass.Release release;
+        try {
+            release = PackageOuterClass.Release.newBuilder()
+                .setVersion(version.get())
+                .setInnerChecksum(ByteString.copyFrom(Hex.decodeHex(innerChecksum.get())))
+                .setOuterChecksum(ByteString.copyFrom(Hex.decodeHex(outerChecksum.get())))
+                .build();
+        } catch (DecoderException e) {
+            throw new RuntimeException("Cannot decode hexed checksum", e);
+        }
+        final PackageOuterClass.Package pckg = PackageOuterClass.Package.newBuilder()
+            .setName(name.get())
+            .setRepository("artipie")//todo repoName
+            .addAllReleases(releasesList.get())
+            .addReleases(release)
+            .build();
+        return SignedOuterClass.Signed.newBuilder()
+            .setPayload(ByteString.copyFrom(pckg.toByteArray()))
+            .setSignature(ByteString.EMPTY)
+            .build();
+    }
+
+    /**
+     * Save signed package to storage
+     */
+    private CompletableFuture<Void> saveSignedPackageToStorage(
+        final AtomicReference<Key> packagesKey,
+        final SignedOuterClass.Signed signed) {
+        return this.storage.save(
+            packagesKey.get(),
+            new Content.From(compressGzip(signed.toByteArray())));
+    }
+
+    /**
+     * Save tar-content to storage
+     */
+    private CompletableFuture<Void> saveTarContentToStorage(final AtomicReference<String> name,
+                                                            final AtomicReference<String> version,
+                                                            final AtomicReference<byte[]> tarContent) {
+        return this.storage.save(
+            new Key.From(DownloadSlice.TARBALLS, String.format("%s-%s.tar", name, version)),
+            new Content.From(tarContent.get()));
+    }
+
+    /**
      * Reads ByteBuffer-contents of Publisher into single byte array
      */
-    private CompletionStage<byte[]> asBytes(Publisher<ByteBuffer> body) {
+    private CompletionStage<byte[]> asBytes(final Publisher<ByteBuffer> body) {
         return new Concatenation(new OneTimePublisher<>(body)).single()
             .to(SingleInterop.get())
             .thenApply(Remaining::new)
@@ -197,9 +254,9 @@ public class UploadSlice implements Slice {
     /**
      * Compresses data using gzip
      */
-    private static byte[] compressGzip(byte[] data) {
+    private static byte[] compressGzip(final byte[] data) {
         ByteArrayOutputStream baos = new ByteArrayOutputStream(data.length);
-        try (GZIPOutputStream gzipos = new GZIPOutputStream(baos, data.length)) {
+        try (final GZIPOutputStream gzipos = new GZIPOutputStream(baos, data.length)) {
             gzipos.write(data);
         } catch (IOException exception) {
             throw new RuntimeException("Error when compressing gzip archive", exception);
@@ -210,8 +267,8 @@ public class UploadSlice implements Slice {
     /**
      * Decompresses data using gzip
      */
-    private static byte[] decompressGzip(byte[] gzippedBytes) {
-        try (GZIPInputStream gzipis = new GZIPInputStream(new ByteArrayInputStream(gzippedBytes), gzippedBytes.length);
+    private static byte[] decompressGzip(final byte[] gzippedBytes) {
+        try (final GZIPInputStream gzipis = new GZIPInputStream(new ByteArrayInputStream(gzippedBytes), gzippedBytes.length);
              ByteArrayOutputStream baos = new ByteArrayOutputStream(gzippedBytes.length)) {
             baos.writeBytes(gzipis.readAllBytes());
             return baos.toByteArray();

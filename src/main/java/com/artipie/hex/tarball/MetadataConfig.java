@@ -1,3 +1,8 @@
+/*
+ * The MIT License (MIT) Copyright (c) 2020-2022 artipie.com
+ * https://github.com/artipie/hexpm-adapter/blob/master/LICENSE.txt
+ */
+
 package com.artipie.hex.tarball;
 
 import com.metadave.etp.ETP;
