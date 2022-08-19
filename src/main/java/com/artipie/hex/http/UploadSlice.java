@@ -18,6 +18,7 @@ import com.artipie.http.headers.Header;
 import com.artipie.http.rq.RequestLineFrom;
 import com.artipie.http.rs.RsFull;
 import com.artipie.http.rs.RsStatus;
+import com.artipie.http.rs.RsWithBody;
 import com.artipie.http.rs.RsWithStatus;
 
 import java.io.ByteArrayInputStream;
@@ -112,16 +113,26 @@ public class UploadSlice implements Slice {
                                 .thenCompose(signedPackage -> saveSignedPackageToStorage(packagesKey, signedPackage))
                                 .thenCompose(nothing -> saveTarContentToStorage(name, version, tarContent));
                         }
-                    }).thenApply(nothing ->
-                        new RsFull(
-                            RsStatus.OK,
-                            new Headers.From(
-                                new Header("Content-Type", "application/vnd.hex+erlang; charset=UTF-8")
-                            ),
-                            Content.EMPTY // todo: return body
-                        )
-                    )
-                );
+                    })
+                    .handle((content, throwable) -> {
+                            final Response result;
+                            if (throwable == null) {
+                                result = new RsFull(
+                                    RsStatus.OK,
+                                    new Headers.From(
+                                        new Header("Content-Type", "application/vnd.hex+erlang; charset=UTF-8")
+                                    ),
+                                    Content.EMPTY // todo: return body
+                                );
+                            } else {
+                                result = new RsWithBody(
+                                    new RsWithStatus(RsStatus.INTERNAL_ERROR),
+                                    throwable.getMessage().getBytes()
+                                );
+                            }
+                            return result;
+                        }
+                    ));
             } catch (Exception e) {
                 System.err.println("e.getMessage() = " + e.getMessage());
                 throw new RuntimeException("ERROR in /publish = ", e);

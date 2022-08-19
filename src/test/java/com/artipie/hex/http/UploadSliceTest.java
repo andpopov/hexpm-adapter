@@ -50,7 +50,6 @@ class UploadSliceTest {
         Map<String, String> reqHeaders = new HashMap<>();
         reqHeaders.put("user-agent", "Hex/1.0.1 (Elixir/1.13.4) (OTP/24.1.7)");
         reqHeaders.put("accept", "application/vnd.hex+erlang");
-        reqHeaders.put("content-type", "application/octet-stream");
 
         AsyncResponse response = (AsyncResponse) new UploadSlice(storage)
             .response(line,
