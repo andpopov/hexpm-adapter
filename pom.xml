@@ -194,29 +194,38 @@ SOFTWARE.
           </execution>
         </executions>
       </plugin>
-      <plugin>
-        <groupId>com.qulice</groupId>
-        <artifactId>qulice-maven-plugin</artifactId>
-        <version>${qulice-maven-plugin.version}</version>
-        <configuration>
-          <license>file:${qulice.license}</license>
-          <excludes combine.children="append">
-            <exclude>checkstyle:.*/src/main/java/com/artipie/proto/generated/.*</exclude>
-            <exclude>pmd:.*/src/main/java/com/artipie/proto/generated/.*</exclude>
-            <exclude>findbugs:.*</exclude>
-            <exclude>duplicatefinder:.*</exclude>
-            <exclude>dependencies:.*</exclude>
-          </excludes>
-        </configuration>
-        <executions>
-          <execution>
-            <goals>
-              <goal>check</goal>
-            </goals>
-          </execution>
-        </executions>
-      </plugin>
     </plugins>
   </build>
 
+  <profiles>
+    <profile>
+      <id>qulice</id>
+      <build>
+        <plugins>
+          <plugin>
+            <groupId>com.qulice</groupId>
+            <artifactId>qulice-maven-plugin</artifactId>
+            <version>${qulice-maven-plugin.version}</version>
+            <configuration>
+              <license>file:${qulice.license}</license>
+              <excludes combine.children="append">
+                <exclude>checkstyle:.*/src/main/java/com/artipie/hex/proto/generated/.*</exclude>
+                <exclude>pmd:.*/src/main/java/com/artipie/hex/proto/generated/.*</exclude>
+                <exclude>findbugs:.*</exclude>
+                <exclude>duplicatefinder:.*</exclude>
+                <exclude>dependencies:.*</exclude>
+              </excludes>
+            </configuration>
+            <executions>
+              <execution>
+                <goals>
+                  <goal>check</goal>
+                </goals>
+              </execution>
+            </executions>
+          </plugin>
+        </plugins>
+      </build>
+    </profile>
+  </profiles>
 </project>

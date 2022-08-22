@@ -4,4 +4,4 @@ target/
 .DS_Store
 
 # generated protobuf files
-/src/main/java/com/artipie/proto/generated/
+/src/main/java/com/artipie/hex/proto/generated/
