@@ -1,6 +1,6 @@
 syntax = "proto2";
 
-option java_package = "com.artipie.proto.generated";
+option java_package = "com.artipie.hex.proto.generated";
 
 message Signed {
   // Signed contents
