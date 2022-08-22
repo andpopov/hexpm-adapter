@@ -50,19 +50,6 @@ import org.reactivestreams.Publisher;
  */
 public class UploadSlice implements Slice {
     /**
-     * Ctor.
-     * @param storage Repository storage.
-     */
-    public UploadSlice(final Storage storage) {
-        this.storage = storage;
-    }
-
-    /**
-     * Repository storage.
-     */
-    private final Storage storage;
-
-    /**
      * Path to publish.
      */
     static final Pattern PUBLISH = Pattern.compile("(/repos/)?(?<org>.+)?/publish");
@@ -71,6 +58,19 @@ public class UploadSlice implements Slice {
      * Query to publish.
      */
     static final Pattern QUERY = Pattern.compile("replace=(?<replace>true|false)");
+
+    /**
+     * Repository storage.
+     */
+    private final Storage storage;
+
+    /**
+     * Ctor.
+     * @param storage Repository storage.
+     */
+    public UploadSlice(final Storage storage) {
+        this.storage = storage;
+    }
 
     @Override
     public Response response(
@@ -87,56 +87,50 @@ public class UploadSlice implements Slice {
         if (pathMatcher.matches() && queryMatcher.matches()) {
             final String org = pathMatcher.group("org");
             final boolean replace = Boolean.parseBoolean(queryMatcher.group("replace"));
-            try {
-                final AtomicReference<String> name = new AtomicReference<>();
-                final AtomicReference<String> version = new AtomicReference<>();
-                final AtomicReference<String> innerChecksum = new AtomicReference<>();
-                final AtomicReference<String> outerChecksum = new AtomicReference<>();
-                final AtomicReference<byte[]> tarContent = new AtomicReference<>();
-                final AtomicReference<List<PackageOuterClass.Release>> releasesList = new AtomicReference<>();
-                final AtomicReference<Key> packagesKey = new AtomicReference<>();
-                return new AsyncResponse(asBytes(body)
-                    .thenAccept(tarBytes -> readVarsFromTar(tarBytes, name, version, innerChecksum, outerChecksum, tarContent, packagesKey))
-                    .thenCompose(nothing -> this.storage.exists(packagesKey.get()))
-                    .thenCompose(packageExists -> {
-                        if(packageExists && !replace) {
-                            return CompletableFuture.completedFuture(null);
-                        } else {
-                            return
-                                readReleasesListFromStorage(packageExists, releasesList, packagesKey)
+            final AtomicReference<String> name = new AtomicReference<>();
+            final AtomicReference<String> version = new AtomicReference<>();
+            final AtomicReference<String> innerChecksum = new AtomicReference<>();
+            final AtomicReference<String> outerChecksum = new AtomicReference<>();
+            final AtomicReference<byte[]> tarContent = new AtomicReference<>();
+            final AtomicReference<List<PackageOuterClass.Release>> releasesList = new AtomicReference<>();
+            final AtomicReference<Key> packagesKey = new AtomicReference<>();
+            res = new AsyncResponse(asBytes(body)
+                .thenAccept(tarBytes -> readVarsFromTar(tarBytes, name, version, innerChecksum, outerChecksum, tarContent, packagesKey))
+                .thenCompose(nothing -> this.storage.exists(packagesKey.get()))
+                .thenCompose(packageExists -> {
+                    if (packageExists && !replace) {
+                        return CompletableFuture.completedFuture(null);
+                    } else {
+                        return
+                            readReleasesListFromStorage(packageExists, releasesList, packagesKey)
                                 .thenAccept(nothing -> {
-                                    if(packageExists) {
+                                    if (packageExists) {
                                         releasesList.get().removeIf(release -> version.get().equals(release.getVersion()));
                                     }
                                 })
                                 .thenApply(nothing -> constructSignedPackage(name, version, innerChecksum, outerChecksum, releasesList))
                                 .thenCompose(signedPackage -> saveSignedPackageToStorage(packagesKey, signedPackage))
                                 .thenCompose(nothing -> saveTarContentToStorage(name, version, tarContent));
+                    }
+                }).handle((content, throwable) -> {
+                        final Response result;
+                        if (throwable == null) {
+                            result = new RsFull(
+                                RsStatus.OK,
+                                new Headers.From(
+                                    new Header("Content-Type", "application/vnd.hex+erlang; charset=UTF-8")
+                                ),
+                                Content.EMPTY // todo: return body
+                            );
+                        } else {
+                            result = new RsWithBody(
+                                new RsWithStatus(RsStatus.INTERNAL_ERROR),
+                                throwable.getMessage().getBytes()
+                            );
                         }
-                    })
-                    .handle((content, throwable) -> {
-                            final Response result;
-                            if (throwable == null) {
-                                result = new RsFull(
-                                    RsStatus.OK,
-                                    new Headers.From(
-                                        new Header("Content-Type", "application/vnd.hex+erlang; charset=UTF-8")
-                                    ),
-                                    Content.EMPTY // todo: return body
-                                );
-                            } else {
-                                result = new RsWithBody(
-                                    new RsWithStatus(RsStatus.INTERNAL_ERROR),
-                                    throwable.getMessage().getBytes()
-                                );
-                            }
-                            return result;
-                        }
-                    ));
-            } catch (Exception e) {
-                System.err.println("e.getMessage() = " + e.getMessage());
-                throw new RuntimeException("ERROR in /publish = ", e);
-            }
+                        return result;
+                    }
+                ));
         } else {
             res = new RsWithStatus(RsStatus.BAD_REQUEST);
         }
