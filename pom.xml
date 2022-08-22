@@ -84,6 +84,7 @@ SOFTWARE.
     <maven-compiler-plugin.version>3.10.1</maven-compiler-plugin.version>
     <os-maven-plugin.version>1.7.0</os-maven-plugin.version>
     <protobuf-maven-plugin.version>0.6.1</protobuf-maven-plugin.version>
+    <qulice-maven-plugin.version>0.21.1</qulice-maven-plugin.version>
   </properties>
   <repositories>
     <repository>
@@ -189,6 +190,28 @@ SOFTWARE.
             <goals>
               <goal>compile</goal>
               <goal>test-compile</goal>
+            </goals>
+          </execution>
+        </executions>
+      </plugin>
+      <plugin>
+        <groupId>com.qulice</groupId>
+        <artifactId>qulice-maven-plugin</artifactId>
+        <version>${qulice-maven-plugin.version}</version>
+        <configuration>
+          <license>file:${qulice.license}</license>
+          <excludes combine.children="append">
+            <exclude>checkstyle:.*/src/main/java/com/artipie/proto/generated/.*</exclude>
+            <exclude>pmd:.*/src/main/java/com/artipie/proto/generated/.*</exclude>
+            <exclude>findbugs:.*</exclude>
+            <exclude>duplicatefinder:.*</exclude>
+            <exclude>dependencies:.*</exclude>
+          </excludes>
+        </configuration>
+        <executions>
+          <execution>
+            <goals>
+              <goal>check</goal>
             </goals>
           </execution>
         </executions>
