@@ -21,3 +21,10 @@ The erlang media type is a safe subset of erlang terms serialized with [`erlang:
 Use token or auth with organization
 
 5. when publish - make documentation
+
+6. add tests for Upload with analysis of internal content of tar archive
+
+7. add support `layout:org`.     .setRepository("artipie") in UploadSlice should be org name
+
+
+8. migrate from `com.github.metadave.etp:0.6.0-SNAPSHOT` to `org.erlang.otp.jinterface:1.6.1`(https://www.erlang.org/doc/apps/jinterface/jinterface.pdf) for parsing erlang in `MetadataConfig`

@@ -5,7 +5,6 @@
 
 package com.artipie.hex.http;
 
-import com.artipie.asto.Storage;
 import com.artipie.http.Response;
 import com.artipie.http.Slice;
 import com.artipie.http.rs.RsStatus;
@@ -17,27 +16,14 @@ import org.reactivestreams.Publisher;
 
 /**
  * This slice returns content about user in erlang format.
+ *
  * @since 0.1
  */
-public class UserSlice implements Slice {
-    /**
-     * Ctor.
-     * @param storage Repository storage.
-     */
-    public UserSlice(final Storage storage) {
-        this.storage = storage;
-    }
-
-    /**
-     * Repository storage.
-     */
-    private final Storage storage;
-
+public final class UserSlice implements Slice {
     /**
      * Path to users.
      */
     static final Pattern USERS = Pattern.compile("/users/(?<user>\\S+)");
-
 
     @Override
     public Response response(

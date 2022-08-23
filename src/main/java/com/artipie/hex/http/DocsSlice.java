@@ -5,7 +5,6 @@
 
 package com.artipie.hex.http;
 
-import com.artipie.asto.Storage;
 import com.artipie.http.Response;
 import com.artipie.http.Slice;
 import com.artipie.http.rs.RsStatus;
@@ -24,19 +23,6 @@ public final class DocsSlice implements Slice {
      * Pattern for docs.
      */
     static final Pattern DOCS_PTRN = Pattern.compile("^/(.*)/docs$");
-
-    /**
-     * Repository storage.
-     */
-    private final Storage storage;
-
-    /**
-     * Ctor.
-     * @param storage Repository storage.
-     */
-    public DocsSlice(final Storage storage) {
-        this.storage = storage;
-    }
 
     @Override
     public Response response(

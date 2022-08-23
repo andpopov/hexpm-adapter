@@ -48,57 +48,57 @@ public final class HexSlice extends Slice.Wrap {
      */
     public HexSlice(final Storage storage, final Permissions perms, final Authentication users) {
         super(new SliceRoute(
-                new RtRulePath(
-                    new RtRule.All(
-                        new ByMethodsRule(RqMethod.GET),
-                        new RtRule.Any(
-                            new RtRule.ByPath(DownloadSlice.PACKAGES_PTRN),
-                            new RtRule.ByPath(DownloadSlice.TARBALLS_PTRN)
-                        )
-                    ),
-                        new BasicAuthSlice(
-                            new DownloadSlice(storage),
-                            users,
-                            new Permission.ByName(perms, Action.Standard.READ)
+            new RtRulePath(
+                new RtRule.All(
+                    new ByMethodsRule(RqMethod.GET),
+                    new RtRule.Any(
+                        new RtRule.ByPath(DownloadSlice.PACKAGES_PTRN),
+                        new RtRule.ByPath(DownloadSlice.TARBALLS_PTRN)
                     )
                 ),
-                new RtRulePath(
-                    new RtRule.All(
-                        new ByMethodsRule(RqMethod.GET),
-                        new RtRule.ByPath(UserSlice.USERS)
-                    ),
-                        new BasicAuthSlice(
-                            new UserSlice(storage),
-                            users,
-                            new Permission.ByName(perms, Action.Standard.READ)
-                    )
-                ),
-                new RtRulePath(
-                    new RtRule.All(
-                        new ByMethodsRule(RqMethod.POST),
-                        new RtRule.ByPath(UploadSlice.PUBLISH)
-                    ),
-                        new BasicAuthSlice(
-                            new UploadSlice(storage),
-                            users,
-                            new Permission.ByName(perms, Action.Standard.WRITE)
-                    )
-                ),
-                new RtRulePath(
-                    new RtRule.All(
-                        new ByMethodsRule(RqMethod.POST),
-                        new RtRule.ByPath(DocsSlice.DOCS_PTRN)
-                    ),
-                        new BasicAuthSlice(
-                            new DocsSlice(storage),
-                            users,
-                            new Permission.ByName(perms, Action.Standard.READ)
-                    )
-                ),
-                new RtRulePath(
-                    RtRule.FALLBACK, new SliceSimple(StandardRs.NOT_FOUND)
+                new BasicAuthSlice(
+                    new DownloadSlice(storage),
+                    users,
+                    new Permission.ByName(perms, Action.Standard.READ)
                 )
+            ),
+            new RtRulePath(
+                new RtRule.All(
+                    new ByMethodsRule(RqMethod.GET),
+                    new RtRule.ByPath(UserSlice.USERS)
+                ),
+                new BasicAuthSlice(
+                    new UserSlice(),
+                    users,
+                    new Permission.ByName(perms, Action.Standard.READ)
+                )
+            ),
+            new RtRulePath(
+                new RtRule.All(
+                    new ByMethodsRule(RqMethod.POST),
+                    new RtRule.ByPath(UploadSlice.PUBLISH)
+                ),
+                new BasicAuthSlice(
+                    new UploadSlice(storage),
+                    users,
+                    new Permission.ByName(perms, Action.Standard.WRITE)
+                )
+            ),
+            new RtRulePath(
+                new RtRule.All(
+                    new ByMethodsRule(RqMethod.POST),
+                    new RtRule.ByPath(DocsSlice.DOCS_PTRN)
+                ),
+                new BasicAuthSlice(
+                    new DocsSlice(),
+                    users,
+                    new Permission.ByName(perms, Action.Standard.READ)
+                )
+            ),
+            new RtRulePath(
+                RtRule.FALLBACK, new SliceSimple(StandardRs.NOT_FOUND)
             )
+        )
         );
     }
 }

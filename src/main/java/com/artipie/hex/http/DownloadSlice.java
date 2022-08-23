@@ -16,7 +16,6 @@ import com.artipie.http.rq.RequestLineFrom;
 import com.artipie.http.rs.RsFull;
 import com.artipie.http.rs.RsStatus;
 import com.artipie.http.rs.StandardRs;
-import com.jcabi.log.Logger;
 import java.nio.ByteBuffer;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
@@ -25,21 +24,9 @@ import org.reactivestreams.Publisher;
 
 /**
  * This slice returns content as bytes by Key from request path.
+ * @since 0.1
  */
-public class DownloadSlice implements Slice {
-    /**
-     * Ctor.
-     * @param storage Repository storage.
-     */
-    public DownloadSlice(final Storage storage) {
-        this.storage = storage;
-    }
-
-    /**
-     * Repository storage.
-     */
-    private final Storage storage;
-
+public final class DownloadSlice implements Slice {
     /**
      * Path to packages.
      */
@@ -48,7 +35,8 @@ public class DownloadSlice implements Slice {
     /**
      * Pattern for packages.
      */
-    static final Pattern PACKAGES_PTRN = Pattern.compile(String.format("/%s/\\S+", PACKAGES));
+    static final Pattern PACKAGES_PTRN =
+        Pattern.compile(String.format("/%s/\\S+", DownloadSlice.PACKAGES));
 
     /**
      * Path to tarballs.
@@ -58,8 +46,21 @@ public class DownloadSlice implements Slice {
     /**
      * Pattern for tarballs.
      */
-    static final Pattern TARBALLS_PTRN = Pattern.compile(String.format("/%s/\\S+", TARBALLS));
+    static final Pattern TARBALLS_PTRN =
+        Pattern.compile(String.format("/%s/\\S+", DownloadSlice.TARBALLS));
 
+    /**
+     * Repository storage.
+     */
+    private final Storage storage;
+
+    /**
+     * Ctor.
+     * @param storage Repository storage.
+     */
+    public DownloadSlice(final Storage storage) {
+        this.storage = storage;
+    }
 
     @Override
     public Response response(
@@ -67,7 +68,7 @@ public class DownloadSlice implements Slice {
         final Iterable<Map.Entry<String, String>> headers,
         final Publisher<ByteBuffer> body
     ) {
-        Key.From key = new Key.From(
+        final Key.From key = new Key.From(
             new RequestLineFrom(line).uri().getPath()
                 .replaceFirst("/", "")
         );
@@ -81,11 +82,11 @@ public class DownloadSlice implements Slice {
                                 new RsFull(
                                     RsStatus.OK,
                                     new Headers.From(
-                                        new Header("Content-Type", "application/octet-stream")),
+                                        new Header("Content-Type", "application/octet-stream")
+                                    ),
                                     value
                                 )
                         );
-                        Logger.info(this, "Get resource by ", key.string());
                     } else {
                         res = CompletableFuture.completedFuture(StandardRs.NOT_FOUND);
                     }

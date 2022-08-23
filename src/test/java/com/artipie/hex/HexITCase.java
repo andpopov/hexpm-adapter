@@ -16,7 +16,6 @@ import com.artipie.vertx.VertxSliceServer;
 import io.vertx.reactivex.core.Vertx;
 import java.io.IOException;
 import java.nio.file.Path;
-import java.util.Optional;
 import org.apache.commons.lang3.tuple.ImmutablePair;
 import org.apache.commons.lang3.tuple.Pair;
 import org.hamcrest.MatcherAssert;
@@ -24,6 +23,7 @@ import org.hamcrest.core.StringContains;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Disabled;
+import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.condition.EnabledOnOs;
 import org.junit.jupiter.api.condition.OS;
 import org.junit.jupiter.api.io.TempDir;
@@ -33,9 +33,13 @@ import org.testcontainers.Testcontainers;
 import org.testcontainers.containers.BindMode;
 import org.testcontainers.containers.GenericContainer;
 
+/**
+ * HexPM integration test.
+ * @since 0.1
+ */
 @EnabledOnOs({OS.LINUX, OS.MAC})
-public class HexITCase {
-
+@SuppressWarnings("PMD.AvoidDuplicateLiterals")
+public final class HexITCase {
     /**
      * Vertx instance.
      */
@@ -73,12 +77,15 @@ public class HexITCase {
      */
     private int port;
 
-    @ParameterizedTest
-    @ValueSource(booleans = {true, /*false*/})//todo
-    void downloadOneDependency(final boolean anonymous) throws IOException, InterruptedException {
-        this.init(anonymous);
-        this.addArtifactToArtipie();
+    @AfterAll
+    static void close() {
+        HexITCase.VERTX.close();
+    }
 
+    @Test
+    void fetchDependency() throws IOException, InterruptedException {
+        this.init(true);
+        this.addArtifactToArtipie();
         MatcherAssert.assertThat(
             this.exec("mix", "hex.package", "fetch", "decimal", "2.0.0", "--repo=my_repo"),
             new StringContains(
@@ -89,59 +96,28 @@ public class HexITCase {
 
     @Disabled
     @ParameterizedTest
-    @ValueSource(booleans = {true, /*false*/})//todo
-    void downloadAllDependencies(final boolean anonymous) throws IOException, InterruptedException {
+    @ValueSource(booleans = {true, false})
+    void downloadDependencies(final boolean anonymous) throws IOException, InterruptedException {
         this.init(anonymous);
         this.addArtifactToArtipie();
-
         MatcherAssert.assertThat(
             "Get dependency for the first time",
             this.exec("mix", "deps.get"),
             new StringContains("New:\n  decimal 2.0.0")
-            //Resolving Hex dependencies...
-            //Dependency resolution completed:
-            //New:
-            //  decimal 2.0.0
-            //  earmark_parser 1.4.26
-            //  ex_doc 0.28.4
-            //  makeup 1.1.0
-            //  makeup_elixir 0.16.0
-            //  makeup_erlang 0.1.1
-            //  nimble_parsec 1.2.3
-            //* Getting decimal (Hex package)
-            //* Getting ex_doc (Hex package)
-            //* Getting earmark_parser (Hex package)
-            //* Getting makeup_elixir (Hex package)
-            //* Getting makeup_erlang (Hex package)
-            //* Getting makeup (Hex package)
-            //* Getting nimble_parsec (Hex package)
         );
-
         MatcherAssert.assertThat(
             "Get dependency for the second time",
             this.exec("mix", "hex.deps", "get"),
             new StringContains("Unchanged:\n  decimal 2.0.0")
-            //Resolving Hex dependencies...
-            //Dependency resolution completed:
-            //Unchanged:
-            //  decimal 2.0.0
-            //  earmark_parser 1.4.26
-            //  ex_doc 0.28.4
-            //  makeup 1.1.0
-            //  makeup_elixir 0.16.0
-            //  makeup_erlang 0.1.1
-            //  nimble_parsec 1.2.3
-            //All dependencies are up to date
         );
     }
 
+    //todo know how send data to container`s stdin
     @Disabled
-    @ParameterizedTest
-    @ValueSource(booleans = {true, /*false*/})//todo
-    void uploadsDependency(final boolean anonymous) throws IOException, InterruptedException {
-        this.init(anonymous);
-        System.out.println("user auth = " + this.exec("mix", "hex.user", "auth"));//todo know how send data to container`s stdin
-
+    @Test
+    void uploadsDependency() throws IOException, InterruptedException {
+        this.init(false);
+        this.exec("mix", "hex.user", "auth");
         MatcherAssert.assertThat(
             this.exec("mix", "hex.publish"),
             new StringContains(
@@ -150,16 +126,13 @@ public class HexITCase {
         );
     }
 
-    private void addHexAndRepoToContainer() throws IOException, InterruptedException {//todo
-        System.out.println("install hex: " +
-            this.exec("mix", "local.hex", "--force"));
-
-        System.out.println("make repo..." +
-            this.exec("mix", "hex.repo", "add", "my_repo", String.format("http://host.testcontainers.internal:%d", this.port)));
-
-        System.out.println("check repos" +
-            this.exec("mix", "hex.repo", "list"));
-
+    void addHexAndRepoToContainer() throws IOException, InterruptedException {
+        this.exec("mix", "local.hex", "--force");
+        this.exec(
+            "mix", "hex.repo", "add", "my_repo",
+            String.format("http://host.testcontainers.internal:%d", this.port)
+        );
+        this.exec("mix", "hex.repo", "list");
     }
 
     @AfterEach
@@ -168,13 +141,8 @@ public class HexITCase {
         this.cntn.stop();
     }
 
-    @AfterAll
-    static void close() {
-        HexITCase.VERTX.close();
-    }
-
     @SuppressWarnings("resource")
-    void init(final boolean anonymous) throws IOException, InterruptedException {
+    private void init(final boolean anonymous) throws IOException, InterruptedException {
         final Pair<Permissions, Authentication> auth = this.auth(anonymous);
         this.storage = new InMemoryStorage();
         this.server = new VertxSliceServer(
@@ -192,17 +160,13 @@ public class HexITCase {
             .withWorkingDirectory("/var/kv")
             .withEnv("HEX_UNSAFE_REGISTRY", "1")
             .withEnv("HEX_NO_VERIFY_REPO_ORIGIN", "1")
-            .withEnv("HEX_API_URL", String.format("http://host.testcontainers.internal:%d", this.port))//todo for pushing
-            .withCommand("tail", "-f", "/dev/null")
-            .withFileSystemBind(this.tmp.toString(), "/home"); //todo нужна ли???
+            .withCommand("tail", "-f", "/dev/null");
         this.cntn.start();
         this.addHexAndRepoToContainer();
     }
 
     private String exec(final String... actions) throws IOException, InterruptedException {
-        return this.cntn.execInContainer(actions).toString()
-            //.replaceAll("\n", "")//todo
-        ;
+        return this.cntn.execInContainer(actions).toString().replaceAll("\n", "");
     }
 
     private void addArtifactToArtipie() {
@@ -227,13 +191,4 @@ public class HexITCase {
         }
         return res;
     }
-
-    private Optional<Pair<String, String>> getUser(final boolean anonymous) {
-        Optional<Pair<String, String>> res = Optional.empty();
-        if (!anonymous) {
-            res = Optional.of(HexITCase.USER);
-        }
-        return res;
-    }
-
 }

@@ -137,7 +137,7 @@ SOFTWARE.
       <groupId>com.artipie</groupId>
       <artifactId>vertx-server</artifactId>
       <version>${vertx-server.version}</version>
-<!--      todo add test scope-->
+      <scope>test</scope>
     </dependency>
     <dependency>
         <groupId>org.junit.jupiter</groupId>

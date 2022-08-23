@@ -5,7 +5,13 @@
 
 package com.artipie.hex.http;
 
-import com.artipie.asto.*;
+import com.artipie.ArtipieException;
+import com.artipie.asto.Concatenation;
+import com.artipie.asto.Content;
+import com.artipie.asto.Key;
+import com.artipie.asto.OneTimePublisher;
+import com.artipie.asto.Remaining;
+import com.artipie.asto.Storage;
 import com.artipie.hex.proto.generated.PackageOuterClass;
 import com.artipie.hex.proto.generated.SignedOuterClass;
 import com.artipie.hex.tarball.MetadataConfig;
@@ -20,7 +26,9 @@ import com.artipie.http.rs.RsFull;
 import com.artipie.http.rs.RsStatus;
 import com.artipie.http.rs.RsWithBody;
 import com.artipie.http.rs.RsWithStatus;
-
+import com.google.protobuf.ByteString;
+import com.google.protobuf.InvalidProtocolBufferException;
+import hu.akarnokd.rxjava2.interop.SingleInterop;
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
@@ -36,10 +44,6 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.zip.GZIPInputStream;
 import java.util.zip.GZIPOutputStream;
-
-import com.google.protobuf.ByteString;
-import com.google.protobuf.InvalidProtocolBufferException;
-import hu.akarnokd.rxjava2.interop.SingleInterop;
 import org.apache.commons.codec.DecoderException;
 import org.apache.commons.codec.binary.Hex;
 import org.apache.commons.codec.digest.DigestUtils;
@@ -47,8 +51,13 @@ import org.reactivestreams.Publisher;
 
 /**
  * This slice creates package meta-info from request body(tar-archive) and saves this tar-archive.
+ * @since 0.1
+ * @checkstyle ClassFanOutComplexityCheck (500 lines)
+ * @checkstyle NestedIfDepthCheck (500 lines)
+ * @checkstyle ParameterNumberCheck (500 lines)
  */
-public class UploadSlice implements Slice {
+@SuppressWarnings({"PMD.ExcessiveMethodLength", "PMD.UnusedLocalVariable"})
+public final class UploadSlice implements Slice {
     /**
      * Path to publish.
      */
@@ -79,48 +88,89 @@ public class UploadSlice implements Slice {
         final Publisher<ByteBuffer> body
     ) {
         final URI uri = new RequestLineFrom(line).uri();
-        final Matcher pathMatcher = UploadSlice.PUBLISH
+        final Matcher pathmatcher = UploadSlice.PUBLISH
             .matcher(uri.getPath());
-        final Matcher queryMatcher = UploadSlice.QUERY
+        final Matcher querymatcher = UploadSlice.QUERY
             .matcher(uri.getQuery());
         final Response res;
-        if (pathMatcher.matches() && queryMatcher.matches()) {
-            final String org = pathMatcher.group("org");
-            final boolean replace = Boolean.parseBoolean(queryMatcher.group("replace"));
+        if (pathmatcher.matches() && querymatcher.matches()) {
+            final String org = pathmatcher.group("org");
+            final boolean replace = Boolean.parseBoolean(querymatcher.group("replace"));
             final AtomicReference<String> name = new AtomicReference<>();
             final AtomicReference<String> version = new AtomicReference<>();
-            final AtomicReference<String> innerChecksum = new AtomicReference<>();
-            final AtomicReference<String> outerChecksum = new AtomicReference<>();
-            final AtomicReference<byte[]> tarContent = new AtomicReference<>();
-            final AtomicReference<List<PackageOuterClass.Release>> releasesList = new AtomicReference<>();
-            final AtomicReference<Key> packagesKey = new AtomicReference<>();
-            res = new AsyncResponse(asBytes(body)
-                .thenAccept(tarBytes -> readVarsFromTar(tarBytes, name, version, innerChecksum, outerChecksum, tarContent, packagesKey))
-                .thenCompose(nothing -> this.storage.exists(packagesKey.get()))
-                .thenCompose(packageExists -> {
-                    if (packageExists && !replace) {
-                        return CompletableFuture.completedFuture(null);
-                    } else {
-                        return
-                            readReleasesListFromStorage(packageExists, releasesList, packagesKey)
-                                .thenAccept(nothing -> {
+            final AtomicReference<String> innerchcksum = new AtomicReference<>();
+            final AtomicReference<String> outerchcksum = new AtomicReference<>();
+            final AtomicReference<byte[]> tarcontent = new AtomicReference<>();
+            final AtomicReference<List<PackageOuterClass.Release>> releaseslist =
+                new AtomicReference<>();
+            final AtomicReference<Key> key = new AtomicReference<>();
+            res = new AsyncResponse(UploadSlice.asBytes(body)
+                .thenAccept(
+                    bytes -> UploadSlice.readVarsFromTar(
+                        bytes,
+                        name,
+                        version,
+                        innerchcksum,
+                        outerchcksum,
+                        tarcontent,
+                        key
+                    )
+                ).thenCompose(
+                    nothing -> this.storage.exists(key.get())
+                ).thenCompose(
+                    packageExists -> {
+                        final CompletableFuture<Void> feature;
+                        if (packageExists && !replace) {
+                            feature = CompletableFuture.completedFuture(null);
+                        } else {
+                            feature = this.readReleasesListFromStorage(
+                                packageExists,
+                                releaseslist,
+                                key
+                            ).thenAccept(
+                                nothing -> {
                                     if (packageExists) {
-                                        releasesList.get().removeIf(release -> version.get().equals(release.getVersion()));
+                                        releaseslist.get().removeIf(
+                                            release -> version.get().equals(release.getVersion())
+                                        );
                                     }
-                                })
-                                .thenApply(nothing -> constructSignedPackage(name, version, innerChecksum, outerChecksum, releasesList))
-                                .thenCompose(signedPackage -> saveSignedPackageToStorage(packagesKey, signedPackage))
-                                .thenCompose(nothing -> saveTarContentToStorage(name, version, tarContent));
+                                }
+                            ).thenApply(
+                                nothing -> UploadSlice.constructSignedPackage(
+                                    name,
+                                    version,
+                                    innerchcksum,
+                                    outerchcksum,
+                                    releaseslist
+                                )
+                            ).thenCompose(
+                                signedPackage -> this.saveSignedPackageToStorage(
+                                    key,
+                                    signedPackage
+                                )
+                            ).thenCompose(
+                                nothing -> this.saveTarContentToStorage(
+                                    name,
+                                    version,
+                                    tarcontent
+                                )
+                            );
+                        }
+                        return feature;
                     }
-                }).handle((content, throwable) -> {
+                ).handle(
+                    (content, throwable) -> {
                         final Response result;
                         if (throwable == null) {
                             result = new RsFull(
                                 RsStatus.OK,
                                 new Headers.From(
-                                    new Header("Content-Type", "application/vnd.hex+erlang; charset=UTF-8")
+                                    new Header(
+                                        "Content-Type",
+                                        "application/vnd.hex+erlang; charset=UTF-8"
+                                    )
                                 ),
-                                Content.EMPTY // todo: return body
+                                Content.EMPTY
                             );
                         } else {
                             result = new RsWithBody(
@@ -130,7 +180,8 @@ public class UploadSlice implements Slice {
                         }
                         return result;
                     }
-                ));
+                )
+            );
         } else {
             res = new RsWithStatus(RsStatus.BAD_REQUEST);
         }
@@ -138,84 +189,115 @@ public class UploadSlice implements Slice {
     }
 
     /**
-     * Reads variables from tar-content
+     * Reads variables from tar-content.
+     * @param tar Tar archive with Elixir package in byte format
+     * @param name Ref for package name
+     * @param version Ref for package version
+     * @param innerchecksum Ref for package innerChecksum
+     * @param outerchecksum Ref for package outerChecksum
+     * @param tarcontent Ref for tar archive in byte format
+     * @param packagekey Ref for key for store
      */
-    private void readVarsFromTar(final byte[] tarBytes,
-                                 final AtomicReference<String> name,
-                                 final AtomicReference<String> version,
-                                 final AtomicReference<String> innerChecksum,
-                                 final AtomicReference<String> outerChecksum,
-                                 final AtomicReference<byte[]> tarContent,
-                                 final AtomicReference<Key> packagesKey) {
-        tarContent.set(tarBytes);
-        outerChecksum.set(DigestUtils.sha256Hex(tarBytes));
-        final TarReader tarReader = new TarReader(tarBytes);
-        tarReader
-            .readEntryContent("metadata.config")
+    private static void readVarsFromTar(
+        final byte[] tar,
+        final AtomicReference<String> name,
+        final AtomicReference<String> version,
+        final AtomicReference<String> innerchecksum,
+        final AtomicReference<String> outerchecksum,
+        final AtomicReference<byte[]> tarcontent,
+        final AtomicReference<Key> packagekey
+    ) {
+        tarcontent.set(tar);
+        outerchecksum.set(DigestUtils.sha256Hex(tar));
+        final TarReader reader = new TarReader(tar);
+        reader
+            .readEntryContent(TarReader.METADATA)
             .map(MetadataConfig::create)
-            .map(metadataConfig -> {
-                final String app = metadataConfig.getApp();
-                name.set(app);
-                packagesKey.set(new Key.From(DownloadSlice.PACKAGES, app));
-                version.set(metadataConfig.getVersion());
-                return metadataConfig;
-            }).orElseThrow();
-        tarReader.readEntryContent("CHECKSUM")
-            .map(checksumBytes -> {
-                innerChecksum.set(new String(checksumBytes));
-                return checksumBytes;
-            }).orElseThrow();
+            .map(
+                metadataConfig -> {
+                    final String app = metadataConfig.getApp();
+                    name.set(app);
+                    packagekey.set(new Key.From(DownloadSlice.PACKAGES, app));
+                    version.set(metadataConfig.getVersion());
+                    return metadataConfig;
+                }
+            ).orElseThrow();
+        reader.readEntryContent(TarReader.CHECKSUM)
+            .map(
+                checksumBytes -> {
+                    innerchecksum.set(new String(checksumBytes));
+                    return checksumBytes;
+                }
+            ).orElseThrow();
     }
 
     /**
-     * Reads releasesList from storage
+     * Reads releasesList from storage.
+     * @param packageexist Ref on package exist
+     * @param releaseslist Ref for list of releases
+     * @param packagekey Ref on key for searching package
+     * @return Empty CompletableFuture
      */
-    private CompletableFuture<Void> readReleasesListFromStorage(final Boolean packageExists,
-                                                                final AtomicReference<List<PackageOuterClass.Release>> releasesList,
-                                                                final AtomicReference<Key> packagesKey) {
+    private CompletableFuture<Void> readReleasesListFromStorage(
+        final Boolean packageexist,
+        final AtomicReference<List<PackageOuterClass.Release>> releaseslist,
+        final AtomicReference<Key> packagekey
+    ) {
         final CompletableFuture<Void> future;
-        if (packageExists) {
-            future = storage.value(packagesKey.get())
-                .thenCompose(this::asBytes)
-                .thenAccept(gzippedBytes -> {
-                    final byte[] bytes = decompressGzip(gzippedBytes);
-                    try {
-                        final SignedOuterClass.Signed signed = SignedOuterClass.Signed.parseFrom(bytes);
-                        final PackageOuterClass.Package pkg = PackageOuterClass.Package.parseFrom(signed.getPayload());
-                        releasesList.set(pkg.getReleasesList());
-                    } catch (InvalidProtocolBufferException e) {
-                        throw new RuntimeException("Cannot parse package", e);
+        if (packageexist) {
+            future = this.storage.value(packagekey.get())
+                .thenCompose(UploadSlice::asBytes)
+                .thenAccept(
+                    gzippedBytes -> {
+                        final byte[] bytes = UploadSlice.decompressGzip(gzippedBytes);
+                        try {
+                            final SignedOuterClass.Signed signed =
+                                SignedOuterClass.Signed.parseFrom(bytes);
+                            final PackageOuterClass.Package pkg =
+                                PackageOuterClass.Package.parseFrom(signed.getPayload());
+                            releaseslist.set(pkg.getReleasesList());
+                        } catch (final InvalidProtocolBufferException ipbex) {
+                            throw new ArtipieException("Cannot parse package", ipbex);
+                        }
                     }
-                });
+                );
         } else {
-            releasesList.set(Collections.emptyList());
+            releaseslist.set(Collections.emptyList());
             future = CompletableFuture.completedFuture(null);
         }
         return future;
     }
 
     /**
-     * Constructs new signed package
+     * Constructs new signed package.
+     * @param name Ref on package name
+     * @param version Ref on package version
+     * @param innerchecksum Ref on package innerChecksum
+     * @param outerchecksum Ref on package outerChecksum
+     * @param releaseslist Ref on list of releases
+     * @return Package wrapped in Signed
      */
-    private SignedOuterClass.Signed constructSignedPackage(final AtomicReference<String> name,
-                                                           final AtomicReference<String> version,
-                                                           final AtomicReference<String> innerChecksum,
-                                                           final AtomicReference<String> outerChecksum,
-                                                           final AtomicReference<List<PackageOuterClass.Release>> releasesList) {
+    private static SignedOuterClass.Signed constructSignedPackage(
+        final AtomicReference<String> name,
+        final AtomicReference<String> version,
+        final AtomicReference<String> innerchecksum,
+        final AtomicReference<String> outerchecksum,
+        final AtomicReference<List<PackageOuterClass.Release>> releaseslist
+    ) {
         final PackageOuterClass.Release release;
         try {
             release = PackageOuterClass.Release.newBuilder()
                 .setVersion(version.get())
-                .setInnerChecksum(ByteString.copyFrom(Hex.decodeHex(innerChecksum.get())))
-                .setOuterChecksum(ByteString.copyFrom(Hex.decodeHex(outerChecksum.get())))
+                .setInnerChecksum(ByteString.copyFrom(Hex.decodeHex(innerchecksum.get())))
+                .setOuterChecksum(ByteString.copyFrom(Hex.decodeHex(outerchecksum.get())))
                 .build();
-        } catch (DecoderException e) {
-            throw new RuntimeException("Cannot decode hexed checksum", e);
+        } catch (final DecoderException dex) {
+            throw new ArtipieException("Cannot decode hexed checksum", dex);
         }
         final PackageOuterClass.Package pckg = PackageOuterClass.Package.newBuilder()
             .setName(name.get())
-            .setRepository("artipie")//todo repoName
-            .addAllReleases(releasesList.get())
+            .setRepository("artipie")
+            .addAllReleases(releaseslist.get())
             .addReleases(release)
             .build();
         return SignedOuterClass.Signed.newBuilder()
@@ -225,31 +307,45 @@ public class UploadSlice implements Slice {
     }
 
     /**
-     * Save signed package to storage
+     * Save signed package to storage.
+     * @param packagekey Ref on key for saving package
+     * @param signed Package wrapped in Signed
+     * @return Empty CompletableFuture
      */
     private CompletableFuture<Void> saveSignedPackageToStorage(
-        final AtomicReference<Key> packagesKey,
-        final SignedOuterClass.Signed signed) {
+        final AtomicReference<Key> packagekey,
+        final SignedOuterClass.Signed signed
+    ) {
         return this.storage.save(
-            packagesKey.get(),
-            new Content.From(compressGzip(signed.toByteArray())));
+            packagekey.get(),
+            new Content.From(UploadSlice.compressGzip(signed.toByteArray()))
+        );
     }
 
     /**
-     * Save tar-content to storage
+     * Save tar-content to storage.
+     * @param name Ref on package name
+     * @param version Ref on package version
+     * @param tarcontent Ref on tar archive in byte format
+     * @return Empty CompletableFuture
      */
-    private CompletableFuture<Void> saveTarContentToStorage(final AtomicReference<String> name,
-                                                            final AtomicReference<String> version,
-                                                            final AtomicReference<byte[]> tarContent) {
+    private CompletableFuture<Void> saveTarContentToStorage(
+        final AtomicReference<String> name,
+        final AtomicReference<String> version,
+        final AtomicReference<byte[]> tarcontent
+    ) {
         return this.storage.save(
             new Key.From(DownloadSlice.TARBALLS, String.format("%s-%s.tar", name, version)),
-            new Content.From(tarContent.get()));
+            new Content.From(tarcontent.get())
+        );
     }
 
     /**
-     * Reads ByteBuffer-contents of Publisher into single byte array
+     * Reads ByteBuffer-contents of Publisher into single byte array.
+     * @param body Request body
+     * @return CompletionStage with bytes from request body
      */
-    private CompletionStage<byte[]> asBytes(final Publisher<ByteBuffer> body) {
+    private static CompletionStage<byte[]> asBytes(final Publisher<ByteBuffer> body) {
         return new Concatenation(new OneTimePublisher<>(body)).single()
             .to(SingleInterop.get())
             .thenApply(Remaining::new)
@@ -257,28 +353,39 @@ public class UploadSlice implements Slice {
     }
 
     /**
-     * Compresses data using gzip
+     * Compresses data using gzip.
+     * @param data Bytes
+     * @return Compressed bytes in gzip format
      */
     private static byte[] compressGzip(final byte[] data) {
-        ByteArrayOutputStream baos = new ByteArrayOutputStream(data.length);
-        try (final GZIPOutputStream gzipos = new GZIPOutputStream(baos, data.length)) {
+        try (
+            ByteArrayOutputStream baos = new ByteArrayOutputStream(data.length);
+            GZIPOutputStream gzipos = new GZIPOutputStream(baos, data.length)
+        ) {
             gzipos.write(data);
-        } catch (IOException exception) {
-            throw new RuntimeException("Error when compressing gzip archive", exception);
+            return baos.toByteArray();
+        } catch (final IOException ioex) {
+            throw new ArtipieException("Error when compressing gzip archive", ioex);
         }
-        return baos.toByteArray();
     }
 
     /**
-     * Decompresses data using gzip
+     * Decompresses data using gzip.
+     * @param gzippedbytes Compressed bytes in gzip format
+     * @return Decompressed bytes
      */
-    private static byte[] decompressGzip(final byte[] gzippedBytes) {
-        try (final GZIPInputStream gzipis = new GZIPInputStream(new ByteArrayInputStream(gzippedBytes), gzippedBytes.length);
-             ByteArrayOutputStream baos = new ByteArrayOutputStream(gzippedBytes.length)) {
+    private static byte[] decompressGzip(final byte[] gzippedbytes) {
+        try (
+            GZIPInputStream gzipis = new GZIPInputStream(
+                new ByteArrayInputStream(gzippedbytes),
+                gzippedbytes.length
+            );
+            ByteArrayOutputStream baos = new ByteArrayOutputStream(gzippedbytes.length)
+        ) {
             baos.writeBytes(gzipis.readAllBytes());
             return baos.toByteArray();
-        } catch (IOException e) {
-            throw new RuntimeException("Error when decompressing gzip archive", e);
+        } catch (final IOException ioex) {
+            throw new ArtipieException("Error when decompressing gzip archive", ioex);
         }
     }
 }
