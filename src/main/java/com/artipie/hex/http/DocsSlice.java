@@ -15,15 +15,14 @@ import java.util.regex.Pattern;
 import org.reactivestreams.Publisher;
 
 /**
- * This slice returns content about user in erlang format.
- *
+ * This slice work with documentations.
  * @since 0.1
  */
-public final class UserSlice implements Slice {
+public final class DocsSlice implements Slice {
     /**
-     * Path to users.
+     * Pattern for docs.
      */
-    static final Pattern USERS = Pattern.compile("/users/(?<user>\\S+)");
+    static final Pattern DOCS_PTRN = Pattern.compile("^/(.*)/docs$");
 
     @Override
     public Response response(
@@ -31,6 +30,6 @@ public final class UserSlice implements Slice {
         final Iterable<Map.Entry<String, String>> headers,
         final Publisher<ByteBuffer> body
     ) {
-        return new RsWithStatus(RsStatus.NO_CONTENT);
+        return new RsWithStatus(RsStatus.OK);
     }
 }

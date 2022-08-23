@@ -4,9 +4,9 @@
  */
 
 /**
- * Tests for Hex repository adapter.
+ * Tests for working with tar archive.
  *
  * @since 0.1
  */
-package com.artipie.hex;
+package com.artipie.hex.tarball;
 

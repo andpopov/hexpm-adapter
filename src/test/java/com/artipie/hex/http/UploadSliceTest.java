@@ -11,56 +11,80 @@ import com.artipie.asto.Storage;
 import com.artipie.asto.memory.InMemoryStorage;
 import com.artipie.hex.ResourceUtil;
 import com.artipie.http.async.AsyncResponse;
-import org.hamcrest.MatcherAssert;
-import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Test;
 import com.jcabi.log.Logger;
-
 import java.io.IOException;
 import java.nio.file.Files;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
+import org.hamcrest.MatcherAssert;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 
+/**
+ * Test for {@link UploadSliceTest}.
+ * @since 0.1
+ */
 class UploadSliceTest {
+    /**
+     * Repository storage.
+     */
     private Storage storage;
 
     @BeforeEach
-    private void init() {
-        storage = new InMemoryStorage();
+    void init() {
+        this.storage = new InMemoryStorage();
     }
 
     @Test
-    public void replaceTrue() throws IOException, ExecutionException, InterruptedException {
-        runScenario(true);
-        MatcherAssert.assertThat("true", storage.exists(new Key.From("packages", "decimal")).get());
-        MatcherAssert.assertThat("true", storage.exists(new Key.From("tarballs", "decimal-2.0.0.tar")).get());
+    void replaceTrue() throws IOException, ExecutionException, InterruptedException {
+        this.runScenario(true);
+        MatcherAssert.assertThat(
+            "true",
+            this.storage.exists(new Key.From("packages", "decimal")).get()
+        );
+        MatcherAssert.assertThat(
+            "true",
+            this.storage.exists(new Key.From("tarballs", "decimal-2.0.0.tar")).get()
+        );
     }
 
     @Test
-    public void replaceFalse() throws IOException, ExecutionException, InterruptedException {
-        runScenario(false);
-        MatcherAssert.assertThat("true", storage.exists(new Key.From("packages", "decimal")).get());
-        MatcherAssert.assertThat("true", storage.exists(new Key.From("tarballs", "decimal-2.0.0.tar")).get());
+    void replaceFalse() throws IOException, ExecutionException, InterruptedException {
+        this.runScenario(false);
+        MatcherAssert.assertThat(
+            "true",
+            this.storage.exists(new Key.From("packages", "decimal")).get()
+        );
+        MatcherAssert.assertThat(
+            "true",
+            this.storage.exists(new Key.From("tarballs", "decimal-2.0.0.tar")).get()
+        );
     }
 
-    public void runScenario(boolean replace) throws IOException, ExecutionException, InterruptedException {
-        String line = String.format("POST /publish?replace=%s HTTP_1_1", replace);
-        Map<String, String> reqHeaders = new HashMap<>();
-        reqHeaders.put("user-agent", "Hex/1.0.1 (Elixir/1.13.4) (OTP/24.1.7)");
-        reqHeaders.put("accept", "application/vnd.hex+erlang");
-
-        AsyncResponse response = (AsyncResponse) new UploadSlice(storage)
-            .response(line,
-                reqHeaders.entrySet(),
-                new Content.From(Files.readAllBytes(ResourceUtil.asPath("tarballs/decimal-2.0.0.tar"))));
-        response.send((status, headers, body) -> {
-            Logger.debug(this, "Response:");
-            Logger.debug(this, "status: %s", status);
-            Logger.debug(this, "headers:");
-            headers.forEach(h -> Logger.debug(this, "%s", h));
-            return CompletableFuture.completedFuture(null);
-        }).toCompletableFuture().get();
+    private void runScenario(final boolean replace)
+        throws IOException, ExecutionException, InterruptedException {
+        final String line = String.format("POST /publish?replace=%s HTTP_1_1", replace);
+        final Map<String, String> headers = new HashMap<>();
+        headers.put("user-agent", "Hex/1.0.1 (Elixir/1.13.4) (OTP/24.1.7)");
+        headers.put("accept", "application/vnd.hex+erlang");
+        final AsyncResponse response = (AsyncResponse) new UploadSlice(this.storage)
+            .response(
+                line,
+                headers.entrySet(),
+                new Content.From(
+                    Files.readAllBytes(new ResourceUtil("tarballs/decimal-2.0.0.tar").asPath())
+                )
+            );
+        response.send(
+            (status, reqHeaders, body) -> {
+                Logger.debug(this, "Response:");
+                Logger.debug(this, "status: %s", status);
+                Logger.debug(this, "headers:");
+                reqHeaders.forEach(h -> Logger.debug(this, "%s", h));
+                return CompletableFuture.completedFuture(null);
+            }
+        ).toCompletableFuture().get();
     }
 }

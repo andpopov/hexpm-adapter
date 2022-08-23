@@ -5,15 +5,21 @@
 
 package com.artipie.hex.tarball;
 
+import com.artipie.ArtipieException;
 import com.metadave.etp.ETP;
 import com.metadave.etp.rep.ETPBinary;
 import com.metadave.etp.rep.ETPTerm;
 import com.metadave.etp.rep.ETPTuple;
-
-import java.io.*;
+import java.io.BufferedReader;
+import java.io.ByteArrayInputStream;
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.InputStreamReader;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Objects;
 
 /**
  * Parses metadata.config file of erlang/elixir tarball's content.
@@ -23,43 +29,116 @@ import java.util.*;
  *  {<<"app">>,<<"decimal">>}.
  *  {<<"version">>,<<"2.0.0">>}.
  *  </pre>
+ *
+ * @since 0.1
  */
-final public class MetadataConfig {
+@SuppressWarnings("PMD.ProhibitPublicStaticMethods")
+public final class MetadataConfig {
+    /**
+     * List of Erlang tuples.
+     */
     private final List<Tuple> tuples;
 
-    private MetadataConfig(List<Tuple> terms) {
+    /**
+     * Ctor.
+     *
+     * @param terms Erlang terms
+     */
+    private MetadataConfig(final List<Tuple> terms) {
         this.tuples = terms;
     }
 
     /**
-     * Get all tuples of metadata.config
-     * @return all tuples
-     */
-    public List<Tuple> getTuples() {
-        return Collections.unmodifiableList(tuples);
-    }
-
-    /**
-     * Get second value of tuple by first value as 'app'
-     * @return second value of tuple
+     * Get second value of tuple by first value as 'app'.
+     *
+     * @return Second value of tuple
      */
     public String getApp() {
-        return getAsString("app");
+        return this.getAsString("app");
     }
 
     /**
-     * Get second value of tuple by first value as 'version'
-     * @return second value of tuple
+     * Get second value of tuple by first value as 'version'.
+     *
+     * @return Second value of tuple
      */
     public String getVersion() {
-        return getAsString("version");
+        return this.getAsString("version");
     }
 
-    private String getAsString(String name) {
+    /**
+     * Parses metadata.config specified by byte array.
+     *
+     * @param bytes MetadataConfig in bytes
+     * @return Instance {@link MetadataConfig}
+     */
+    public static MetadataConfig create(final byte[] bytes) {
+        Objects.requireNonNull(bytes);
+        return create(new ByteArrayInputStream(bytes));
+    }
+
+    /**
+     * Parses metadata.config specified by path.
+     *
+     * @param path Path to file
+     * @return Instance {@link MetadataConfig}
+     * @throws IOException if file not exist
+     */
+    static MetadataConfig create(final Path path) throws IOException {
+        Objects.requireNonNull(path);
+        return create(Files.newInputStream(path));
+    }
+
+    /**
+     * Parses metadata.config specified by InputStream.
+     *
+     * @param input InputStream with metadata.config
+     * @return Instance {@link MetadataConfig}
+     * @checkstyle NestedIfDepthCheck (50 lines)
+     */
+    static MetadataConfig create(final InputStream input) {
+        try {
+            try (BufferedReader reader = new BufferedReader(new InputStreamReader(input))) {
+                final List<Tuple> tuples = new ArrayList<>(10);
+                final StringBuilder expr = new StringBuilder();
+                String line = reader.readLine();
+                while (line != null) {
+                    line = line.trim();
+                    if (!line.isEmpty() && line.charAt(0) != '%') {
+                        if (line.endsWith(".")) {
+                            expr.append(line);
+                            final ETPTerm<?> term = ETP.parse(expr.toString());
+                            if (term instanceof ETPTuple) {
+                                tuples.add(new Tuple((ETPTuple) term));
+                            }
+                            expr.setLength(0);
+                        } else {
+                            expr.append(line);
+                        }
+                    }
+                    line = reader.readLine();
+                }
+                return new MetadataConfig(tuples);
+            }
+        } catch (final IOException | ETP.ParseException exception) {
+            throw new ArtipieException("Cannot parse content of metadata.config", exception);
+        }
+    }
+
+    /**
+     * Get tuple as string.
+     *
+     * @param name Tuple name
+     * @return Tuple as String
+     */
+    private String getAsString(final String name) {
         String app = null;
-        for(Tuple tuple: tuples) {
-            if(tuple.isBinary(0) && tuple.asBinary(0).getBinaryValue(0).isBinString() && name.equals(tuple.asBinary(0).getBinaryValue(0).asBinString().getValue())) {
-                if(tuple.isBinary(1)) {
+        for (final Tuple tuple : this.tuples) {
+            if (tuple.isBinary(0)
+                && tuple.asBinary(0).getBinaryValue(0).isBinString()
+                && name.equals(tuple.asBinary(0).getBinaryValue(0).asBinString().getValue())
+            ) {
+                if (tuple.isBinary(1)) {
                     app = tuple.asBinary(1).getBinaryValue(0).asBinString().getValue();
                 }
                 break;
@@ -69,110 +148,102 @@ final public class MetadataConfig {
     }
 
     /**
-     * Parses metadata.config specified by path
-     */
-    public static MetadataConfig create(Path path) throws IOException {
-        Objects.requireNonNull(path);
-        return create(Files.newInputStream(path));
-    }
-
-    /**
-     * Parses metadata.config specified by byte array
-     */
-    public static MetadataConfig create(byte[] bytes) {
-        Objects.requireNonNull(bytes);
-        return create(new ByteArrayInputStream(bytes));
-    }
-
-    /**
-     * Parses metadata.config specified by InputStream
-     */
-    public static MetadataConfig create(InputStream is) {
-        try {
-            try (BufferedReader reader = new BufferedReader(new InputStreamReader(is))) {
-                List<Tuple> tuples = new ArrayList<>();
-                StringBuilder expr = new StringBuilder();
-                String line;
-                while ((line = reader.readLine()) != null) {
-                    line = line.trim();
-                    if (!line.isEmpty() && !line.startsWith("%")) {
-                        if (line.endsWith(".")) {
-                            expr.append(line);
-                            ETPTerm<?> term = ETP.parse(expr.toString());
-                            if(term instanceof ETPTuple) {
-                                tuples.add(new Tuple((ETPTuple) term));
-                            }
-                            expr.setLength(0);
-                        } else {
-                            expr.append(line);
-                        }
-                    }
-                }
-                return new MetadataConfig(tuples);
-            }
-        } catch (IOException | ETP.ParseException e) {
-            throw new RuntimeException("Cannot parse content of metadata.config", e);
-        }
-    }
-
-    /**
-     * ETPTuple wrapper
+     * ETPTuple wrapper.
+     * @since 0.1
      */
     private static class Tuple {
-        final ETPTuple value;
+        /**
+         * Value of tuple.
+         */
+        private final ETPTuple value;
 
-        public Tuple(ETPTuple tuple) {
+        /**
+         * Ctor.
+         * @param tuple Erlang tuple
+         */
+        Tuple(final ETPTuple tuple) {
             this.value = tuple;
         }
 
-        public boolean isBinary(int pos) {
-            ETPTerm<?> term = value.getValue(pos);
-            return term instanceof ETPBinary;
+        /**
+         * Check on binary.
+         * @param pos Position
+         * @return True if it is Binary
+         */
+        public boolean isBinary(final int pos) {
+            return this.value.getValue(pos) instanceof ETPBinary;
         }
 
-        public Binary asBinary(int pos) {
-            return  new Binary((ETPBinary)(value.getValue(pos)));
+        /**
+         * Get Binary by position.
+         * @param pos Position
+         * @return Instance of {@link Binary}
+         */
+        public Binary asBinary(final int pos) {
+            return new Binary((ETPBinary) (this.value.getValue(pos)));
         }
     }
 
     /**
-     * ETPBinary wrapper
+     * ETPBinary wrapper.
+     * @since 0.1
      */
     private static class Binary {
-        final ETPBinary value;
+        /**
+         * Value of Binary.
+         */
+        private final ETPBinary value;
 
-        public Binary(ETPBinary value) {
+        /**
+         * Ctor.
+         * @param value Erlang Binary
+         */
+        Binary(final ETPBinary value) {
             this.value = value;
         }
 
-        public BinaryValue getBinaryValue(int pos) {
-            return new BinaryValue((ETPBinary.ETPBinaryValue<?>) value.getValue(pos));
+        /**
+         * Get BinaryValue by position.
+         * @param pos Position
+         * @return Instance of {@link BinaryValue}
+         */
+        public BinaryValue getBinaryValue(final int pos) {
+            return new BinaryValue((ETPBinary.ETPBinaryValue<?>) this.value.getValue(pos));
         }
     }
 
     /**
-     * TPBinary.ETPBinaryValue wrapper
+     * TPBinary.ETPBinaryValue wrapper.
+     * @since 0.1
      */
     private static class BinaryValue {
+        /**
+         * Value of BinaryValue.
+         */
         private final ETPBinary.ETPBinaryValue<?> value;
-        public BinaryValue(ETPBinary.ETPBinaryValue<?> value) {
+
+        /**
+         * Ctor.
+         * @param value Erlang BinaryValue wrapped by Erlang Binary
+         */
+        BinaryValue(final ETPBinary.ETPBinaryValue<?> value) {
             this.value = value;
         }
 
-        public boolean isBinInt() {
-            return value instanceof ETPBinary.BinInt;
-        }
-
-        public ETPBinary.BinInt asBinInt() {
-            return (ETPBinary.BinInt) value;
-        }
-
+        /**
+         * Check on Erlang BinString.
+         * @return True if it is BinString
+         */
         public boolean isBinString() {
-            return value instanceof ETPBinary.BinString;
+            return this.value instanceof ETPBinary.BinString;
         }
 
+        /**
+         * Cast to BinString.
+         * @return Instance of {@link BinaryValue}
+         */
         public ETPBinary.BinString asBinString() {
-            return (ETPBinary.BinString) value;
+            return (ETPBinary.BinString) this.value;
         }
     }
 }

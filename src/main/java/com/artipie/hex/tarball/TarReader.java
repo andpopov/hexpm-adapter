@@ -1,44 +1,79 @@
+/*
+ * The MIT License (MIT) Copyright (c) 2020-2022 artipie.com
+ * https://github.com/artipie/hexpm-adapter/blob/master/LICENSE.txt
+ */
+
 package com.artipie.hex.tarball;
 
+import com.artipie.ArtipieException;
+import java.io.ByteArrayInputStream;
+import java.io.ByteArrayOutputStream;
+import java.io.IOException;
+import java.util.Arrays;
+import java.util.Optional;
 import org.apache.commons.compress.archivers.tar.TarArchiveEntry;
 import org.apache.commons.compress.archivers.tar.TarArchiveInputStream;
 
-import java.io.*;
-import java.util.Optional;
-
 /**
- * Allows to read content of named-entries from tar-source
+ * Allows to read content of named-entries from tar-source.
+ *
+ * @since 0.1
  */
+@SuppressWarnings("PMD.AssignmentInOperand")
 public class TarReader {
-    final private byte[] bytes;
+    /**
+     * File metadata.config.
+     */
+    public static final String CHECKSUM = "CHECKSUM";
+
+    /**
+     * File metadata.config.
+     */
+    public static final String METADATA = "metadata.config";
+
+    /**
+     * Tar archive as bytes.
+     */
+    private final byte[] bytes;
+
+    /**
+     * Ctor.
+     * @param bytes Tar archive as bytes
+     */
     public TarReader(final byte[] bytes) {
-        this.bytes = bytes;
+        this.bytes = Arrays.copyOf(bytes, bytes.length);
     }
 
     /**
-     * Reads content of entry stored in tar-archive
+     * Reads content of entry stored in tar-archive.
+     * @param name Name of entry
+     * @return Optional of tar entry in byte array
      */
-    public Optional<byte[]> readEntryContent(String entryName) {
+    public Optional<byte[]> readEntryContent(final String name) {
         byte[] content = null;
         try {
-            try (ByteArrayInputStream bis = new ByteArrayInputStream(bytes)) {
-                TarArchiveInputStream tar = new TarArchiveInputStream(bis);
+            try (ByteArrayInputStream bis = new ByteArrayInputStream(this.bytes);
+                TarArchiveInputStream tar = new TarArchiveInputStream(bis)
+            ) {
                 TarArchiveEntry entry;
                 while ((entry = (TarArchiveEntry) tar.getNextEntry()) != null) {
-                    if(entryName.equals(entry.getName())) {
-                        ByteArrayOutputStream entryContent = new ByteArrayOutputStream();
+                    if (name.equals(entry.getName())) {
+                        final ByteArrayOutputStream entrycontent = new ByteArrayOutputStream();
                         int len;
-                        byte[] buf = new byte[1024];
-                        while((len = tar.read(buf)) != -1) {
-                            entryContent.write(buf, 0, len);
+                        final byte[] buf = new byte[1024];
+                        while ((len = tar.read(buf)) != -1) {
+                            entrycontent.write(buf, 0, len);
                         }
-                        content = entryContent.toByteArray();
+                        content = entrycontent.toByteArray();
                         break;
                     }
                 }
             }
-        } catch (IOException e) {
-            throw new RuntimeException(String.format("Cannot read content of '%s' from tar-archive", entryName), e);
+        } catch (final IOException ioex) {
+            throw new ArtipieException(
+                String.format("Cannot read content of '%s' from tar-archive", name),
+                ioex
+            );
         }
         return Optional.ofNullable(content);
     }

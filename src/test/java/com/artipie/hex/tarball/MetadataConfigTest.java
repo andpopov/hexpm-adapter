@@ -6,36 +6,33 @@
 package com.artipie.hex.tarball;
 
 import com.artipie.hex.ResourceUtil;
+import java.io.IOException;
 import org.hamcrest.MatcherAssert;
 import org.hamcrest.core.StringContains;
 import org.junit.jupiter.api.Test;
 
-import java.io.IOException;
-
+/**
+ * Test for {@link MetadataConfigTest}.
+ * @since 0.1
+ */
 public class MetadataConfigTest {
     @Test
-    public void readApp() throws IOException {
-        MetadataConfig mconf = MetadataConfig.create(ResourceUtil.asPath("tarballs/metadata.config"));
-
-        String app = mconf.getApp();
+    void readApp() throws IOException {
+        final MetadataConfig mconf =
+            MetadataConfig.create(new ResourceUtil("metadata/metadata.config").asPath());
         MatcherAssert.assertThat(
-            app,
-            new StringContains(
-                "decimal"
-            )
+            mconf.getApp(),
+            new StringContains("decimal")
         );
     }
 
     @Test
-    public void readVersion() throws IOException {
-        MetadataConfig mconf = MetadataConfig.create(ResourceUtil.asPath("tarballs/metadata.config"));
-
-        String version = mconf.getVersion();
+    void readVersion() throws IOException {
+        final MetadataConfig mconf =
+            MetadataConfig.create(new ResourceUtil("metadata/metadata.config").asPath());
         MatcherAssert.assertThat(
-            version,
-            new StringContains(
-                "2.0.0"
-            )
+            mconf.getVersion(),
+            new StringContains("2.0.0")
         );
     }
 }

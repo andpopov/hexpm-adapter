@@ -75,7 +75,7 @@ SOFTWARE.
     <artipie-asto.version>v1.12.3</artipie-asto.version>
     <artipie-http.version>v1.1.4</artipie-http.version>
     <protobuf.version>3.21.5</protobuf.version>
-    <slf4j-simple.version>2.0.0-beta1</slf4j-simple.version>
+    <slf4j.version>2.0.0</slf4j.version>
     <testcontainers.version>1.17.3</testcontainers.version>
     <vertx-server.version>1.0.0</vertx-server.version>
     <etp.version>0.6-SNAPSHOT</etp.version>
@@ -84,6 +84,7 @@ SOFTWARE.
     <maven-compiler-plugin.version>3.10.1</maven-compiler-plugin.version>
     <os-maven-plugin.version>1.7.0</os-maven-plugin.version>
     <protobuf-maven-plugin.version>0.6.1</protobuf-maven-plugin.version>
+    <qulice-maven-plugin.version>0.21.1</qulice-maven-plugin.version>
   </properties>
   <repositories>
     <repository>
@@ -109,6 +110,12 @@ SOFTWARE.
     <dependency>
       <groupId>org.slf4j</groupId>
       <artifactId>slf4j-api</artifactId>
+      <version>${slf4j.version}</version>
+    </dependency>
+    <dependency>
+      <groupId>org.slf4j</groupId>
+      <artifactId>slf4j-simple</artifactId>
+      <version>${slf4j.version}</version>
     </dependency>
     <dependency>
       <groupId>com.google.protobuf</groupId>
@@ -130,7 +137,7 @@ SOFTWARE.
       <groupId>com.artipie</groupId>
       <artifactId>vertx-server</artifactId>
       <version>${vertx-server.version}</version>
-<!--      todo add test scope-->
+      <scope>test</scope>
     </dependency>
     <dependency>
         <groupId>org.junit.jupiter</groupId>
@@ -146,12 +153,6 @@ SOFTWARE.
       <groupId>org.testcontainers</groupId>
       <artifactId>testcontainers</artifactId>
       <version>${testcontainers.version}</version>
-      <scope>test</scope>
-    </dependency>
-    <dependency>
-      <groupId>org.slf4j</groupId>
-      <artifactId>slf4j-simple</artifactId>
-      <version>${slf4j-simple.version}</version>
       <scope>test</scope>
     </dependency>
   </dependencies>
@@ -180,6 +181,9 @@ SOFTWARE.
         <version>${protobuf-maven-plugin.version}</version>
         <configuration>
           <protoSourceRoot>src/main/resources/proto</protoSourceRoot>
+          <outputDirectory>src/main/java</outputDirectory>
+          <clearOutputDirectory>false</clearOutputDirectory>
+          <!--suppress UnresolvedMavenProperty -->
           <protocArtifact>com.google.protobuf:protoc:${protobuf.version}:exe:${os.detected.classifier}</protocArtifact>
         </configuration>
         <executions>
@@ -194,4 +198,35 @@ SOFTWARE.
     </plugins>
   </build>
 
+  <profiles>
+    <profile>
+      <id>qulice</id>
+      <build>
+        <plugins>
+          <plugin>
+            <groupId>com.qulice</groupId>
+            <artifactId>qulice-maven-plugin</artifactId>
+            <version>${qulice-maven-plugin.version}</version>
+            <configuration>
+              <license>file:${qulice.license}</license>
+              <excludes combine.children="append">
+                <exclude>checkstyle:.*/src/main/java/com/artipie/hex/proto/generated/.*</exclude>
+                <exclude>pmd:.*/src/main/java/com/artipie/hex/proto/generated/.*</exclude>
+                <exclude>findbugs:.*</exclude>
+                <exclude>duplicatefinder:.*</exclude>
+                <exclude>dependencies:.*</exclude>
+              </excludes>
+            </configuration>
+            <executions>
+              <execution>
+                <goals>
+                  <goal>check</goal>
+                </goals>
+              </execution>
+            </executions>
+          </plugin>
+        </plugins>
+      </build>
+    </profile>
+  </profiles>
 </project>

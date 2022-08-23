@@ -6,20 +6,25 @@
 package com.artipie.hex.tarball;
 
 import com.artipie.hex.ResourceUtil;
-import org.apache.commons.io.IOUtils;
+import java.io.IOException;
+import java.nio.file.Files;
+import org.apache.commons.compress.utils.IOUtils;
 import org.hamcrest.MatcherAssert;
 import org.hamcrest.core.IsEqual;
 import org.junit.jupiter.api.Test;
 
-import java.io.IOException;
-import java.nio.file.Files;
-
+/**
+ * Test for {@link TarReaderTest}.
+ * @since 0.1
+ */
 public class TarReaderTest {
     @Test
     public void readHexPackageName() throws IOException {
-        final byte[] tarContent = IOUtils.toByteArray(Files.newInputStream(ResourceUtil.asPath("tarballs/decimal-2.0.0.tar")));
+        final byte[] content = IOUtils.toByteArray(
+            Files.newInputStream(new ResourceUtil("tarballs/decimal-2.0.0.tar").asPath())
+        );
         MatcherAssert.assertThat(
-            new TarReader(tarContent)
+            new TarReader(content)
                 .readEntryContent("metadata.config")
                 .isPresent(),
             new IsEqual<>(true)
