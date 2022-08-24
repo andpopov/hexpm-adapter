@@ -7,8 +7,10 @@ package com.artipie.hex.tarball;
 
 import com.artipie.hex.ResourceUtil;
 import java.io.IOException;
+import java.nio.file.Files;
 import org.hamcrest.MatcherAssert;
 import org.hamcrest.core.StringContains;
+import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 
 /**
@@ -16,22 +18,30 @@ import org.junit.jupiter.api.Test;
  * @since 0.1
  */
 public class MetadataConfigTest {
+    /**
+     * Metadata.config file.
+     */
+    private static MetadataConfig metadata;
+
+    @BeforeAll
+    static void setUp() throws IOException {
+        MetadataConfigTest.metadata = new MetadataConfig(
+            Files.readAllBytes(new ResourceUtil("metadata/metadata.config").asPath())
+        );
+    }
+
     @Test
-    void readApp() throws IOException {
-        final MetadataConfig mconf =
-            MetadataConfig.create(new ResourceUtil("metadata/metadata.config").asPath());
+    void readApp() {
         MatcherAssert.assertThat(
-            mconf.getApp(),
+            MetadataConfigTest.metadata.app(),
             new StringContains("decimal")
         );
     }
 
     @Test
-    void readVersion() throws IOException {
-        final MetadataConfig mconf =
-            MetadataConfig.create(new ResourceUtil("metadata/metadata.config").asPath());
+    void readVersion() {
         MatcherAssert.assertThat(
-            mconf.getVersion(),
+            MetadataConfigTest.metadata.version(),
             new StringContains("2.0.0")
         );
     }

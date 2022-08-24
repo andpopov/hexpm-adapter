@@ -166,7 +166,7 @@ public final class HexITCase {
     }
 
     private String exec(final String... actions) throws IOException, InterruptedException {
-        return this.cntn.execInContainer(actions).toString().replaceAll("\n", "");
+        return this.cntn.execInContainer(actions).toString().replace("\n", "");
     }
 
     private void addArtifactToArtipie() {
