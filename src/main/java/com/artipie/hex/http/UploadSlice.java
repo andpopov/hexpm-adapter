@@ -212,13 +212,13 @@ public final class UploadSlice implements Slice {
         final TarReader reader = new TarReader(tar);
         reader
             .readEntryContent(TarReader.METADATA)
-            .map(MetadataConfig::create)
+            .map(MetadataConfig::new)
             .map(
                 metadataConfig -> {
-                    final String app = metadataConfig.getApp();
+                    final String app = metadataConfig.app();
                     name.set(app);
                     packagekey.set(new Key.From(DownloadSlice.PACKAGES, app));
-                    version.set(metadataConfig.getVersion());
+                    version.set(metadataConfig.version());
                     return metadataConfig;
                 }
             ).orElseThrow();

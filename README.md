@@ -13,16 +13,16 @@
 [![Maven Central](https://img.shields.io/maven-central/v/com.artipie/hexpm-adapter.svg)](https://maven-badges.herokuapp.com/maven-central/com.artipie/npm-adapter)
 [![PDD status](http://www.0pdd.com/svg?name=artipie/hexpm-adapter)](http://www.0pdd.com/p?name=artipie/hexpm-adapter)
 
-Hexpm adapter for Elixir and erlang packages.
+## Hexpm adapter for Elixir and Erlang packages.
+
+If you have any question or suggestions, do not hesitate to [create an issue](https://github.com/artipie/hexpm-adapter/issues/new) or contact us in
+[Telegram](https://t.me/artipie).  
+Artipie [roadmap](https://github.com/orgs/artipie/projects/3).
 
 For generate classes, first use the command:
 ```shell
 mvn compile
 ```
-
-If you have any question or suggestions, do not hesitate to [create an issue](https://github.com/artipie/hexpm-adapter/issues/new) or contact us in
-[Telegram](https://t.me/artipie).  
-Artipie [roadmap](https://github.com/orgs/artipie/projects/3).
 
 ## How to contribute
 
