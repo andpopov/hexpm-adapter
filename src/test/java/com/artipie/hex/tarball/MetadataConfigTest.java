@@ -14,7 +14,7 @@ import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 
 /**
- * Test for {@link MetadataConfigTest}.
+ * Test for {@link MetadataConfig}.
  * @since 0.1
  */
 public class MetadataConfigTest {

@@ -23,7 +23,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
 /**
- * Test for {@link UploadSliceTest}.
+ * Test for {@link UploadSlice}.
  * @since 0.1
  */
 class UploadSliceTest {
