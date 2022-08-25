@@ -163,7 +163,7 @@ public final class UploadSlice implements Slice {
                         final Response result;
                         if (throwable == null) {
                             result = new RsFull(
-                                RsStatus.OK,
+                                RsStatus.CREATED,
                                 new Headers.From(
                                     new Header(
                                         "Content-Type",

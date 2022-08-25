@@ -14,7 +14,7 @@ import org.hamcrest.core.IsEqual;
 import org.junit.jupiter.api.Test;
 
 /**
- * Test for {@link TarReaderTest}.
+ * Test for {@link TarReader}.
  * @since 0.1
  */
 public class TarReaderTest {
