@@ -17,7 +17,7 @@ import org.junit.jupiter.api.Test;
  * Test for {@link MetadataConfig}.
  * @since 0.1
  */
-public class MetadataConfigTest {
+class MetadataConfigTest {
     /**
      * Metadata.config file.
      */

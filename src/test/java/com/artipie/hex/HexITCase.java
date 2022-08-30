@@ -39,7 +39,7 @@ import org.testcontainers.containers.GenericContainer;
  */
 @EnabledOnOs({OS.LINUX, OS.MAC})
 @SuppressWarnings("PMD.AvoidDuplicateLiterals")
-public final class HexITCase {
+final class HexITCase {
     /**
      * Vertx instance.
      */
@@ -83,7 +83,7 @@ public final class HexITCase {
     }
 
     @Test
-    void fetchDependency() throws IOException, InterruptedException {
+    void downloadDependency() throws IOException, InterruptedException {
         this.init(true);
         this.addArtifactToArtipie();
         MatcherAssert.assertThat(
@@ -97,18 +97,18 @@ public final class HexITCase {
     @Disabled
     @ParameterizedTest
     @ValueSource(booleans = {true, false})
-    void downloadDependencies(final boolean anonymous) throws IOException, InterruptedException {
+    void fetchDependencies(final boolean anonymous) throws IOException, InterruptedException {
         this.init(anonymous);
         this.addArtifactToArtipie();
         MatcherAssert.assertThat(
             "Get dependency for the first time",
             this.exec("mix", "deps.get"),
-            new StringContains("New:\n  decimal 2.0.0")
+            new StringContains("New:  decimal 2.0.0")
         );
         MatcherAssert.assertThat(
             "Get dependency for the second time",
-            this.exec("mix", "hex.deps", "get"),
-            new StringContains("Unchanged:\n  decimal 2.0.0")
+            this.exec("mix", "deps.get"),
+            new StringContains("Unchanged:  decimal 2.0.0")
         );
     }
 
@@ -132,7 +132,6 @@ public final class HexITCase {
             "mix", "hex.repo", "add", "my_repo",
             String.format("http://host.testcontainers.internal:%d", this.port)
         );
-        this.exec("mix", "hex.repo", "list");
     }
 
     @AfterEach

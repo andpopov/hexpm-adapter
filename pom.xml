@@ -77,6 +77,7 @@ SOFTWARE.
     <artipie-http.version>v1.1.4</artipie-http.version>
     <protobuf.version>3.21.5</protobuf.version>
     <slf4j.version>2.0.0</slf4j.version>
+    <reload4j.version>1.2.22</reload4j.version>
     <testcontainers.version>1.17.3</testcontainers.version>
     <vertx-server.version>1.0.0</vertx-server.version>
     <commons-compress.version>1.21</commons-compress.version>
@@ -84,7 +85,7 @@ SOFTWARE.
     <maven-compiler-plugin.version>3.10.1</maven-compiler-plugin.version>
     <os-maven-plugin.version>1.7.0</os-maven-plugin.version>
     <protobuf-maven-plugin.version>0.6.1</protobuf-maven-plugin.version>
-    <qulice-maven-plugin.version>0.21.1</qulice-maven-plugin.version>
+    <qulice-maven-plugin.version>0.22.0</qulice-maven-plugin.version>
   </properties>
 
   <dependencies>
@@ -97,16 +98,6 @@ SOFTWARE.
       <groupId>com.artipie</groupId>
       <artifactId>asto</artifactId>
       <version>${artipie-asto.version}</version>
-    </dependency>
-    <dependency>
-      <groupId>org.slf4j</groupId>
-      <artifactId>slf4j-api</artifactId>
-      <version>${slf4j.version}</version>
-    </dependency>
-    <dependency>
-      <groupId>org.slf4j</groupId>
-      <artifactId>slf4j-simple</artifactId>
-      <version>${slf4j.version}</version>
     </dependency>
     <dependency>
       <groupId>com.google.protobuf</groupId>
@@ -139,6 +130,18 @@ SOFTWARE.
       <groupId>org.testcontainers</groupId>
       <artifactId>testcontainers</artifactId>
       <version>${testcontainers.version}</version>
+      <scope>test</scope>
+    </dependency>
+    <dependency>
+      <groupId>org.slf4j</groupId>
+      <artifactId>slf4j-api</artifactId>
+      <version>${slf4j.version}</version>
+      <scope>test</scope>
+    </dependency>
+    <dependency>
+      <groupId>org.slf4j</groupId>
+      <artifactId>slf4j-reload4j</artifactId>
+      <version>${slf4j.version}</version>
       <scope>test</scope>
     </dependency>
   </dependencies>
