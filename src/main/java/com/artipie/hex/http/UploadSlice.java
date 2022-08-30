@@ -38,6 +38,7 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionStage;
 import java.util.concurrent.atomic.AtomicReference;
@@ -56,6 +57,7 @@ import org.reactivestreams.Publisher;
  * @checkstyle ClassFanOutComplexityCheck (500 lines)
  * @checkstyle NestedIfDepthCheck (500 lines)
  * @checkstyle ParameterNumberCheck (500 lines)
+ * @checkstyle AvoidInlineConditionalsCheck (500 lines)
  */
 @SuppressWarnings("PMD.ExcessiveMethodLength")
 public final class UploadSlice implements Slice {
@@ -89,10 +91,10 @@ public final class UploadSlice implements Slice {
         final Publisher<ByteBuffer> body
     ) {
         final URI uri = new RequestLineFrom(line).uri();
-        final Matcher pathmatcher = UploadSlice.PUBLISH
-            .matcher(uri.getPath());
-        final Matcher querymatcher = UploadSlice.QUERY
-            .matcher(uri.getQuery());
+        final String path = Objects.nonNull(uri.getPath()) ? uri.getPath() : "";
+        final Matcher pathmatcher = UploadSlice.PUBLISH.matcher(path);
+        final String query = Objects.nonNull(uri.getQuery()) ? uri.getQuery() : "";
+        final Matcher querymatcher = UploadSlice.QUERY.matcher(query);
         final Response res;
         if (pathmatcher.matches() && querymatcher.matches()) {
             final boolean replace = Boolean.parseBoolean(querymatcher.group("replace"));

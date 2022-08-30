@@ -9,18 +9,23 @@ import com.artipie.asto.Content;
 import com.artipie.asto.Key;
 import com.artipie.asto.Storage;
 import com.artipie.asto.memory.InMemoryStorage;
+import com.artipie.asto.test.ContentIs;
 import com.artipie.hex.ResourceUtil;
-import com.artipie.http.async.AsyncResponse;
-import com.jcabi.log.Logger;
+import com.artipie.http.Headers;
+import com.artipie.http.Slice;
+import com.artipie.http.headers.ContentLength;
+import com.artipie.http.hm.RsHasStatus;
+import com.artipie.http.hm.SliceHasResponse;
+import com.artipie.http.rq.RequestLine;
+import com.artipie.http.rq.RqMethod;
+import com.artipie.http.rs.RsStatus;
 import java.io.IOException;
 import java.nio.file.Files;
-import java.util.HashMap;
-import java.util.Map;
-import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.ExecutionException;
 import org.hamcrest.MatcherAssert;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 
 /**
  * Test for {@link UploadSlice}.
@@ -28,63 +33,89 @@ import org.junit.jupiter.api.Test;
  */
 class UploadSliceTest {
     /**
-     * Repository storage.
+     * Test storage.
      */
     private Storage storage;
+
+    /**
+     * UploadSlice.
+     */
+    private Slice slice;
 
     @BeforeEach
     void init() {
         this.storage = new InMemoryStorage();
+        this.slice = new UploadSlice(this.storage);
     }
 
-    @Test
-    void replaceTrue() throws IOException, ExecutionException, InterruptedException {
-        this.runScenario(true);
-        MatcherAssert.assertThat(
-            "true",
-            this.storage.exists(new Key.From("packages", "decimal")).get()
+    @ParameterizedTest
+    @ValueSource(booleans = {true, false})
+    void publishAndReplace(final boolean replace) throws IOException {
+        final byte[] tar = Files.readAllBytes(
+            new ResourceUtil("tarballs/decimal-2.0.0.tar").asPath()
         );
         MatcherAssert.assertThat(
-            "true",
-            this.storage.exists(new Key.From("tarballs", "decimal-2.0.0.tar")).get()
-        );
-    }
-
-    @Test
-    void replaceFalse() throws IOException, ExecutionException, InterruptedException {
-        this.runScenario(false);
-        MatcherAssert.assertThat(
-            "true",
-            this.storage.exists(new Key.From("packages", "decimal")).get()
+            "Wrong response status, CREATED is expected",
+            this.slice,
+            new SliceHasResponse(
+                new RsHasStatus(RsStatus.CREATED),
+                new RequestLine(RqMethod.POST, String.format("/publish?replace=%s", replace)),
+                new Headers.From(new ContentLength(tar.length)),
+                new Content.From(tar)
+            )
         );
         MatcherAssert.assertThat(
-            "true",
-            this.storage.exists(new Key.From("tarballs", "decimal-2.0.0.tar")).get()
+            "Package was not saved in storage",
+            this.storage.value(new Key.From("packages/decimal")).join(),
+            new ContentIs(Files.readAllBytes(new ResourceUtil("packages/decimal").asPath()))
         );
-    }
-
-    private void runScenario(final boolean replace)
-        throws IOException, ExecutionException, InterruptedException {
-        final String line = String.format("POST /publish?replace=%s HTTP_1_1", replace);
-        final Map<String, String> headers = new HashMap<>();
-        headers.put("user-agent", "Hex/1.0.1 (Elixir/1.13.4) (OTP/24.1.7)");
-        headers.put("accept", "application/vnd.hex+erlang");
-        final AsyncResponse response = (AsyncResponse) new UploadSlice(this.storage)
-            .response(
-                line,
-                headers.entrySet(),
-                new Content.From(
-                    Files.readAllBytes(new ResourceUtil("tarballs/decimal-2.0.0.tar").asPath())
+        MatcherAssert.assertThat(
+            "Tarball was not saved in storage",
+            this.storage.value(new Key.From("tarballs", "decimal-2.0.0.tar")).join(),
+            new ContentIs(
+                Files.readAllBytes(
+                    new ResourceUtil("tarballs/decimal-2.0.0.tar").asPath()
                 )
-            );
-        response.send(
-            (status, reqHeaders, body) -> {
-                Logger.debug(this, "Response:");
-                Logger.debug(this, "status: %s", status);
-                Logger.debug(this, "headers:");
-                reqHeaders.forEach(h -> Logger.debug(this, "%s", h));
-                return CompletableFuture.completedFuture(null);
-            }
-        ).toCompletableFuture().get();
+            )
+        );
+    }
+
+    @Test
+    void publishExistedPackageReplaceFalse() throws IOException {
+        final byte[] tar = Files.readAllBytes(
+            new ResourceUtil("tarballs/decimal-2.0.0.tar").asPath()
+        );
+        MatcherAssert.assertThat(
+            "Wrong response status for the first upload, CREATED is expected",
+            this.slice,
+            new SliceHasResponse(
+                new RsHasStatus(RsStatus.CREATED),
+                new RequestLine(RqMethod.POST, "/publish?replace=false"),
+                new Headers.From(new ContentLength(tar.length)),
+                new Content.From(tar)
+            )
+        );
+        MatcherAssert.assertThat(
+            "Wrong response status for a package that already exists, INTERNAL_ERROR is expected",
+            this.slice,
+            new SliceHasResponse(
+                new RsHasStatus(RsStatus.INTERNAL_ERROR),
+                new RequestLine(RqMethod.POST, "/publish?replace=false"),
+                new Headers.From(new ContentLength(tar.length)),
+                new Content.From(tar)
+            )
+        );
+    }
+
+    @Test
+    void returnsBadRequestOnIncorrectRequest() {
+        MatcherAssert.assertThat(
+            "Wrong response status, BAD_REQUEST is expected",
+            new UploadSlice(this.storage),
+            new SliceHasResponse(
+                new RsHasStatus(RsStatus.BAD_REQUEST),
+                new RequestLine(RqMethod.POST, "/publish")
+            )
+        );
     }
 }
