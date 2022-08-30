@@ -17,9 +17,9 @@ import org.junit.jupiter.api.Test;
  * Test for {@link TarReader}.
  * @since 0.1
  */
-public class TarReaderTest {
+class TarReaderTest {
     @Test
-    public void readHexPackageName() throws IOException {
+    void readHexPackageName() throws IOException {
         final byte[] content = IOUtils.toByteArray(
             Files.newInputStream(new ResourceUtil("tarballs/decimal-2.0.0.tar").asPath())
         );

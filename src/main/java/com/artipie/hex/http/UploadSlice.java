@@ -34,9 +34,11 @@ import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.net.URI;
 import java.nio.ByteBuffer;
+import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionStage;
 import java.util.concurrent.atomic.AtomicReference;
@@ -55,8 +57,9 @@ import org.reactivestreams.Publisher;
  * @checkstyle ClassFanOutComplexityCheck (500 lines)
  * @checkstyle NestedIfDepthCheck (500 lines)
  * @checkstyle ParameterNumberCheck (500 lines)
+ * @checkstyle AvoidInlineConditionalsCheck (500 lines)
  */
-@SuppressWarnings({"PMD.ExcessiveMethodLength", "PMD.UnusedLocalVariable"})
+@SuppressWarnings("PMD.ExcessiveMethodLength")
 public final class UploadSlice implements Slice {
     /**
      * Path to publish.
@@ -88,22 +91,21 @@ public final class UploadSlice implements Slice {
         final Publisher<ByteBuffer> body
     ) {
         final URI uri = new RequestLineFrom(line).uri();
-        final Matcher pathmatcher = UploadSlice.PUBLISH
-            .matcher(uri.getPath());
-        final Matcher querymatcher = UploadSlice.QUERY
-            .matcher(uri.getQuery());
+        final String path = Objects.nonNull(uri.getPath()) ? uri.getPath() : "";
+        final Matcher pathmatcher = UploadSlice.PUBLISH.matcher(path);
+        final String query = Objects.nonNull(uri.getQuery()) ? uri.getQuery() : "";
+        final Matcher querymatcher = UploadSlice.QUERY.matcher(query);
         final Response res;
         if (pathmatcher.matches() && querymatcher.matches()) {
-            final String org = pathmatcher.group("org");
             final boolean replace = Boolean.parseBoolean(querymatcher.group("replace"));
             final AtomicReference<String> name = new AtomicReference<>();
             final AtomicReference<String> version = new AtomicReference<>();
             final AtomicReference<String> innerchcksum = new AtomicReference<>();
             final AtomicReference<String> outerchcksum = new AtomicReference<>();
             final AtomicReference<byte[]> tarcontent = new AtomicReference<>();
-            final AtomicReference<List<PackageOuterClass.Release>> releaseslist =
+            final AtomicReference<List<PackageOuterClass.Release>> releases =
                 new AtomicReference<>();
-            final AtomicReference<Key> key = new AtomicReference<>();
+            final AtomicReference<Key> packagekey = new AtomicReference<>();
             res = new AsyncResponse(UploadSlice.asBytes(body)
                 .thenAccept(
                     bytes -> UploadSlice.readVarsFromTar(
@@ -113,51 +115,37 @@ public final class UploadSlice implements Slice {
                         innerchcksum,
                         outerchcksum,
                         tarcontent,
-                        key
+                        packagekey
                     )
                 ).thenCompose(
-                    nothing -> this.storage.exists(key.get())
+                    nothing -> this.storage.exists(packagekey.get())
                 ).thenCompose(
-                    packageExists -> {
-                        final CompletableFuture<Void> feature;
-                        if (packageExists && !replace) {
-                            feature = CompletableFuture.completedFuture(null);
-                        } else {
-                            feature = this.readReleasesListFromStorage(
-                                packageExists,
-                                releaseslist,
-                                key
-                            ).thenAccept(
-                                nothing -> {
-                                    if (packageExists) {
-                                        releaseslist.get().removeIf(
-                                            release -> version.get().equals(release.getVersion())
-                                        );
-                                    }
-                                }
-                            ).thenApply(
-                                nothing -> UploadSlice.constructSignedPackage(
-                                    name,
-                                    version,
-                                    innerchcksum,
-                                    outerchcksum,
-                                    releaseslist
-                                )
-                            ).thenCompose(
-                                signedPackage -> this.saveSignedPackageToStorage(
-                                    key,
-                                    signedPackage
-                                )
-                            ).thenCompose(
-                                nothing -> this.saveTarContentToStorage(
-                                    name,
-                                    version,
-                                    tarcontent
-                                )
-                            );
-                        }
-                        return feature;
-                    }
+                    packageExists -> this.readReleasesListFromStorage(
+                        packageExists,
+                        releases,
+                        packagekey
+                    ).thenAccept(
+                        nothing -> UploadSlice.handleReleases(releases, replace, version)
+                    ).thenApply(
+                        nothing -> UploadSlice.constructSignedPackage(
+                            name,
+                            version,
+                            innerchcksum,
+                            outerchcksum,
+                            releases
+                        )
+                    ).thenCompose(
+                        signedPackage -> this.saveSignedPackageToStorage(
+                            packagekey,
+                            signedPackage
+                        )
+                    ).thenCompose(
+                        nothing -> this.saveTarContentToStorage(
+                            name,
+                            version,
+                            tarcontent
+                        )
+                    )
                 ).handle(
                     (content, throwable) -> {
                         final Response result;
@@ -186,6 +174,40 @@ public final class UploadSlice implements Slice {
             res = new RsWithStatus(RsStatus.BAD_REQUEST);
         }
         return res;
+    }
+
+    /**
+     * Handle releases by finding version.
+     *
+     * @param releases List of releases from storage
+     * @param replace Need replace for release
+     * @param version Version for searching
+     * @throws ArtipieException if realise exist in releases and don't need to replace.
+     */
+    private static void handleReleases(
+        final AtomicReference<List<PackageOuterClass.Release>> releases,
+        final boolean replace,
+        final AtomicReference<String> version
+    ) throws ArtipieException {
+        final List<PackageOuterClass.Release> releaseslist = releases.get();
+        if (releaseslist.isEmpty()) {
+            return;
+        }
+        boolean versionexist = false;
+        final List<PackageOuterClass.Release> filtered = new ArrayList<>(releaseslist.size());
+        for (final PackageOuterClass.Release release : releaseslist) {
+            if (release.getVersion().equals(version.get())) {
+                versionexist = true;
+            } else {
+                filtered.add(release);
+            }
+        }
+        if (versionexist && !replace) {
+            throw new ArtipieException(String.format("Version %s already exists.", version.get()));
+        }
+        if (replace) {
+            releases.set(filtered);
+        }
     }
 
     /**
@@ -234,13 +256,13 @@ public final class UploadSlice implements Slice {
     /**
      * Reads releasesList from storage.
      * @param packageexist Ref on package exist
-     * @param releaseslist Ref for list of releases
+     * @param releases Ref for list of releases
      * @param packagekey Ref on key for searching package
      * @return Empty CompletableFuture
      */
     private CompletableFuture<Void> readReleasesListFromStorage(
         final Boolean packageexist,
-        final AtomicReference<List<PackageOuterClass.Release>> releaseslist,
+        final AtomicReference<List<PackageOuterClass.Release>> releases,
         final AtomicReference<Key> packagekey
     ) {
         final CompletableFuture<Void> future;
@@ -255,14 +277,14 @@ public final class UploadSlice implements Slice {
                                 SignedOuterClass.Signed.parseFrom(bytes);
                             final PackageOuterClass.Package pkg =
                                 PackageOuterClass.Package.parseFrom(signed.getPayload());
-                            releaseslist.set(pkg.getReleasesList());
+                            releases.set(pkg.getReleasesList());
                         } catch (final InvalidProtocolBufferException ipbex) {
                             throw new ArtipieException("Cannot parse package", ipbex);
                         }
                     }
                 );
         } else {
-            releaseslist.set(Collections.emptyList());
+            releases.set(Collections.emptyList());
             future = CompletableFuture.completedFuture(null);
         }
         return future;
@@ -274,7 +296,7 @@ public final class UploadSlice implements Slice {
      * @param version Ref on package version
      * @param innerchecksum Ref on package innerChecksum
      * @param outerchecksum Ref on package outerChecksum
-     * @param releaseslist Ref on list of releases
+     * @param releases Ref on list of releases
      * @return Package wrapped in Signed
      */
     private static SignedOuterClass.Signed constructSignedPackage(
@@ -282,7 +304,7 @@ public final class UploadSlice implements Slice {
         final AtomicReference<String> version,
         final AtomicReference<String> innerchecksum,
         final AtomicReference<String> outerchecksum,
-        final AtomicReference<List<PackageOuterClass.Release>> releaseslist
+        final AtomicReference<List<PackageOuterClass.Release>> releases
     ) {
         final PackageOuterClass.Release release;
         try {
@@ -297,7 +319,7 @@ public final class UploadSlice implements Slice {
         final PackageOuterClass.Package pckg = PackageOuterClass.Package.newBuilder()
             .setName(name.get())
             .setRepository("artipie")
-            .addAllReleases(releaseslist.get())
+            .addAllReleases(releases.get())
             .addReleases(release)
             .build();
         return SignedOuterClass.Signed.newBuilder()
@@ -363,6 +385,8 @@ public final class UploadSlice implements Slice {
             GZIPOutputStream gzipos = new GZIPOutputStream(baos, data.length)
         ) {
             gzipos.write(data);
+            gzipos.finish();
+            baos.flush();
             return baos.toByteArray();
         } catch (final IOException ioex) {
             throw new ArtipieException("Error when compressing gzip archive", ioex);

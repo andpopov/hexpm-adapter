@@ -1,5 +1,7 @@
 [Specification](https://github.com/hexpm/specifications/blob/488fdb7e0d92c2149b7d21088621176d3ec76c8d/apiary.apib) + [online viewer](https://dillinger.io/)
 
+[api responses](https://github.com/hexpm/hex/blob/main/test/support/case.ex#L380)
+
 The specifications describe two [endpoints](https://github.com/hexpm/specifications/blob/main/endpoints.md#repository):
 1. HTTP API(https://hex.pm/api/) - used for publishing packages, packages search, and administrative tasks.
 2. Repository(https://repo.hex.pm/) - read-only endpoint that delivers registry resources and package tarballs.
@@ -39,7 +41,7 @@ openssl genrsa -out private_key.pem
 ```shell
 mix hex.registry build public --name=my_repo --private-key=private_key.pem
 ```
-[//]: # (todo расковырять как делать публичный ключ без создания registry через hex )
+[//]: # (todo how to create public key without making `hex registry`)
 
 my_repo will contain decimal.tar  
 Get decimal.tar from hex.pm and move it to your repo
@@ -118,12 +120,12 @@ Publishes a new package version - `POST /publish?replace=<true or false> HTTP_1_
 mix hex.publish
 ```
 
-Publish current package
+Publish only package, without docs
 ```shell
 mix hex.publish package
 ```
 
-Change `api_url` and and publish current package
+Change `api_url` and publish only package
 ```shell
 $ HEX_API_URL=http://<HOST> HEX_API_KEY=<AUTH_KEY> mix hex.publish package
 ```
@@ -132,6 +134,3 @@ push artifact in my_organization's repo - `POST /repos/my_organization/publish?r
 ```shell
 mix hex.publish --organization my_organization
 ```
-
-For publishing we have the /api/publish endpoint https://github.com/hexpm/hexpm/pull/674 + https://github.com/hexpm/hexpm/issues/489 + https://github.com/hexpm/hex/pull/665/files
-
