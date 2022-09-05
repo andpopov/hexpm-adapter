@@ -1,9 +1,9 @@
 1. Now we have test case for pull via Mix. We have to **_implement also for Rebar_** [Usage](https://hex.pm/docs/rebar3_usage). Mix and Rebar is the building system for Elixir and Erlang, like Maven and Gradle for Java
 
-2. _**Investigate about public key**_ for repository: _--public-key PATH - Path to public key used to verify the registry_ (optional). [Mix.Tasks.Hex.Repo](https://hexdocs.pm/hex/Mix.Tasks.Hex.Repo.html). That allow remove `.withEnv("HEX_UNSAFE_REGISTRY", "1")` from `HexITCase.init()`
+2. _**Investigate about public key**_ for repository: _--public-key PATH - Path to public key used to verify the registry_ (optional). [Mix.Tasks.Hex.Repo](https://hexdocs.pm/hex/Mix.Tasks.Hex.Repo.html). That will allow remove `.withEnv("HEX_UNSAFE_REGISTRY", "1")` and `.withEnv("HEX_NO_VERIFY_REPO_ORIGIN", "1")`from `HexITCase.init()` and smoke test in Artipie repository.
 
 3. Content-Type - application/vnd.hex+<needed format> implement these type of headers:
-   Custom media types are used in the API to let consumers choose the format of the data they wish to receive. This is done by adding one or more of the following types to the Accept header when you make a request.
+   Custom media types are used in the API to let consumers choose the format of the data they wish to receive. This is done by adding one or more of the following types to the `Accept` header when you make a request.
 
 The API supports two media types; JSON and Erlang. Hex media types look like this:
 

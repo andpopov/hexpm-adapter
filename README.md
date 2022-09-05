@@ -15,14 +15,20 @@
 
 ## Hexpm adapter for Elixir and Erlang packages.
 
+This Java library, piece of Artipie, which allows you to create your own private package repository for Erlang and Elixir.
+
 If you have any question or suggestions, do not hesitate to [create an issue](https://github.com/artipie/hexpm-adapter/issues/new) or contact us in
 [Telegram](https://t.me/artipie).  
 Artipie [roadmap](https://github.com/orgs/artipie/projects/3).
 
-For generate classes, first use the command:
-```shell
-mvn compile
-```
+> For generate classes, first use the command:
+> ```shell
+> mvn compile
+> ```
+
+## How to configure
+
+An example with a simple configuration can be found on the [Artipie wiki page](https://github.com/artipie/artipie/wiki/hexpm).
 
 ## How to contribute
 

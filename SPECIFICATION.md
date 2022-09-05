@@ -10,9 +10,7 @@ The specifications describe two [endpoints](https://github.com/hexpm/specificati
 
 [Configure Hex](https://hexdocs.pm/hex/Mix.Tasks.Hex.Config.html) - `mix hex.config`
 
-[Building custom Hex repositories](https://dashbit.co/blog/mix-hex-registry-build)
-
-[Offline (Docker) Hex Mirror](https://fnlog.dev/wanderer/elixir-bit-offline-docker-hex-mirror/)
+<hr>
 
 _Mix and Rebar is the building system for Elixir and Erlang, like Maven and Gradle for Java_
 
@@ -112,8 +110,8 @@ mix hex.package fetch decimal 2.0.0 --repo=my_repo
 
 ###  Use it to publish packages in private repo
 
-[publishing via mix](https://hex.pm/docs/publish)
-[publishing via rebar](https://hex.pm/docs/rebar3_publish)
+- [publishing via mix](https://hex.pm/docs/publish)
+- [publishing via rebar](https://hex.pm/docs/rebar3_publish)
 
 Publishes a new package version - `POST /publish?replace=<true or false> HTTP_1_1`
 ```shell
