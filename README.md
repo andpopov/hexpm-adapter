@@ -26,6 +26,43 @@ Artipie [roadmap](https://github.com/orgs/artipie/projects/3).
 > mvn compile
 > ```
 
+## Structure
+
+Repository contains two type of files: **package** - meta-information about package and **tarball** - archive with package.  
+When publishing a tar archive, the repository creates(or updates if exist) a package file. Package file is gzipped file that include bytes in protobuf format.
+
+**Package** consist of:  
+```
+-- bytes(gzipped bytes):
+    -- signed(SignedOuterClass.Signed):
+        -- sign(String)
+        -- package(PackageOuterClass.Package):
+            -- name(String)
+            -- repository(str), default:"artipie"
+            -- releases(List<PackageOuterClass.Release>):
+                -- release(PackageOuterClass.Release)
+                    -- version(String)
+                    -- innerchecksum(ByteString)
+                    -- outerchecksum(ByteString)
+                    -- outerchecksum(ByteString)
+                    -- dependencies(List<PackageOuterClass.Dependency>):
+                        -- dependency(PackageOuterClass.Dependency)
+                            -- package(String)
+                            -- requirement(String)
+                            -- repository(str), default:"artipie"
+                            -- optional(Boolean)
+```
+More information about structure you can find in [proto files](src/main/resources/proto).
+
+**Tarball** contains:
+```
+-- contents.tar.gz - gzipped tarball with project contents
+-- CHECKSUM - SHA-256 hex-encoded checksum of the included tarball
+-- metadata.config - Erlang term file with project's metadata
+-- VERSION - tarball version, current version is 3.
+```
+More information in [tarball specification](https://github.com/hexpm/specifications/blob/main/package_tarball.md).
+
 ## How to configure
 
 An example with a simple configuration can be found on the [Artipie wiki page](https://github.com/artipie/artipie/wiki/hexpm).
