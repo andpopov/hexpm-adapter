@@ -16,11 +16,12 @@ import com.artipie.hex.proto.generated.PackageOuterClass;
 import com.artipie.hex.proto.generated.SignedOuterClass;
 import com.artipie.hex.tarball.MetadataConfig;
 import com.artipie.hex.tarball.TarReader;
+import com.artipie.hex.utils.Gzip;
 import com.artipie.http.Headers;
 import com.artipie.http.Response;
 import com.artipie.http.Slice;
 import com.artipie.http.async.AsyncResponse;
-import com.artipie.http.headers.Header;
+import com.artipie.http.headers.ContentType;
 import com.artipie.http.rq.RequestLineFrom;
 import com.artipie.http.rs.RsFull;
 import com.artipie.http.rs.RsStatus;
@@ -29,9 +30,6 @@ import com.artipie.http.rs.RsWithStatus;
 import com.google.protobuf.ByteString;
 import com.google.protobuf.InvalidProtocolBufferException;
 import hu.akarnokd.rxjava2.interop.SingleInterop;
-import java.io.ByteArrayInputStream;
-import java.io.ByteArrayOutputStream;
-import java.io.IOException;
 import java.net.URI;
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
@@ -44,8 +42,6 @@ import java.util.concurrent.CompletionStage;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
-import java.util.zip.GZIPInputStream;
-import java.util.zip.GZIPOutputStream;
 import org.apache.commons.codec.DecoderException;
 import org.apache.commons.codec.binary.Hex;
 import org.apache.commons.codec.digest.DigestUtils;
@@ -153,8 +149,7 @@ public final class UploadSlice implements Slice {
                             result = new RsFull(
                                 RsStatus.CREATED,
                                 new Headers.From(
-                                    new Header(
-                                        "Content-Type",
+                                    new ContentType(
                                         "application/vnd.hex+erlang; charset=UTF-8"
                                     )
                                 ),
@@ -271,7 +266,7 @@ public final class UploadSlice implements Slice {
                 .thenCompose(UploadSlice::asBytes)
                 .thenAccept(
                     gzippedBytes -> {
-                        final byte[] bytes = UploadSlice.decompressGzip(gzippedBytes);
+                        final byte[] bytes = new Gzip(gzippedBytes).decompress();
                         try {
                             final SignedOuterClass.Signed signed =
                                 SignedOuterClass.Signed.parseFrom(bytes);
@@ -340,7 +335,7 @@ public final class UploadSlice implements Slice {
     ) {
         return this.storage.save(
             packagekey.get(),
-            new Content.From(UploadSlice.compressGzip(signed.toByteArray()))
+            new Content.From(new Gzip(signed.toByteArray()).compress())
         );
     }
 
@@ -372,44 +367,5 @@ public final class UploadSlice implements Slice {
             .to(SingleInterop.get())
             .thenApply(Remaining::new)
             .thenApply(Remaining::bytes);
-    }
-
-    /**
-     * Compresses data using gzip.
-     * @param data Bytes
-     * @return Compressed bytes in gzip format
-     */
-    private static byte[] compressGzip(final byte[] data) {
-        try (
-            ByteArrayOutputStream baos = new ByteArrayOutputStream(data.length);
-            GZIPOutputStream gzipos = new GZIPOutputStream(baos, data.length)
-        ) {
-            gzipos.write(data);
-            gzipos.finish();
-            baos.flush();
-            return baos.toByteArray();
-        } catch (final IOException ioex) {
-            throw new ArtipieException("Error when compressing gzip archive", ioex);
-        }
-    }
-
-    /**
-     * Decompresses data using gzip.
-     * @param gzippedbytes Compressed bytes in gzip format
-     * @return Decompressed bytes
-     */
-    private static byte[] decompressGzip(final byte[] gzippedbytes) {
-        try (
-            GZIPInputStream gzipis = new GZIPInputStream(
-                new ByteArrayInputStream(gzippedbytes),
-                gzippedbytes.length
-            );
-            ByteArrayOutputStream baos = new ByteArrayOutputStream(gzippedbytes.length)
-        ) {
-            baos.writeBytes(gzipis.readAllBytes());
-            return baos.toByteArray();
-        } catch (final IOException ioex) {
-            throw new ArtipieException("Error when decompressing gzip archive", ioex);
-        }
     }
 }

@@ -5,12 +5,18 @@
 
 package com.artipie.hex.http;
 
+import com.artipie.asto.Concatenation;
 import com.artipie.asto.Content;
 import com.artipie.asto.Key;
+import com.artipie.asto.OneTimePublisher;
+import com.artipie.asto.Remaining;
 import com.artipie.asto.Storage;
 import com.artipie.asto.memory.InMemoryStorage;
 import com.artipie.asto.test.ContentIs;
 import com.artipie.hex.ResourceUtil;
+import com.artipie.hex.proto.generated.PackageOuterClass;
+import com.artipie.hex.proto.generated.SignedOuterClass;
+import com.artipie.hex.utils.Gzip;
 import com.artipie.http.Headers;
 import com.artipie.http.Slice;
 import com.artipie.http.headers.ContentLength;
@@ -19,9 +25,15 @@ import com.artipie.http.hm.SliceHasResponse;
 import com.artipie.http.rq.RequestLine;
 import com.artipie.http.rq.RqMethod;
 import com.artipie.http.rs.RsStatus;
+import hu.akarnokd.rxjava2.interop.SingleInterop;
 import java.io.IOException;
 import java.nio.file.Files;
+import java.util.List;
+import org.apache.commons.codec.binary.Hex;
+import org.apache.commons.codec.digest.DigestUtils;
 import org.hamcrest.MatcherAssert;
+import org.hamcrest.core.IsEqual;
+import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -33,6 +45,11 @@ import org.junit.jupiter.params.provider.ValueSource;
  */
 class UploadSliceTest {
     /**
+     * Tar archive as byte array.
+     */
+    private static byte[] tar;
+
+    /**
      * Test storage.
      */
     private Storage storage;
@@ -42,6 +59,13 @@ class UploadSliceTest {
      */
     private Slice slice;
 
+    @BeforeAll
+    static void beforeAll() throws IOException {
+        UploadSliceTest.tar = Files.readAllBytes(
+            new ResourceUtil("tarballs/decimal-2.0.0.tar").asPath()
+        );
+    }
+
     @BeforeEach
     void init() {
         this.storage = new InMemoryStorage();
@@ -50,18 +74,15 @@ class UploadSliceTest {
 
     @ParameterizedTest
     @ValueSource(booleans = {true, false})
-    void publishAndReplace(final boolean replace) throws IOException {
-        final byte[] tar = Files.readAllBytes(
-            new ResourceUtil("tarballs/decimal-2.0.0.tar").asPath()
-        );
+    void publish(final boolean replace) throws Exception {
         MatcherAssert.assertThat(
             "Wrong response status, CREATED is expected",
             this.slice,
             new SliceHasResponse(
                 new RsHasStatus(RsStatus.CREATED),
                 new RequestLine(RqMethod.POST, String.format("/publish?replace=%s", replace)),
-                new Headers.From(new ContentLength(tar.length)),
-                new Content.From(tar)
+                new Headers.From(new ContentLength(UploadSliceTest.tar.length)),
+                new Content.From(UploadSliceTest.tar)
             )
         );
         MatcherAssert.assertThat(
@@ -72,27 +93,25 @@ class UploadSliceTest {
         MatcherAssert.assertThat(
             "Tarball was not saved in storage",
             this.storage.value(new Key.From("tarballs", "decimal-2.0.0.tar")).join(),
-            new ContentIs(
-                Files.readAllBytes(
-                    new ResourceUtil("tarballs/decimal-2.0.0.tar").asPath()
-                )
-            )
+            new ContentIs(UploadSliceTest.tar)
+        );
+        MatcherAssert.assertThat(
+            "Package is not filled",
+            this.checkPackage("decimal", "2.0.0", DigestUtils.sha256Hex(UploadSliceTest.tar)),
+            new IsEqual<>(true)
         );
     }
 
     @Test
-    void publishExistedPackageReplaceFalse() throws IOException {
-        final byte[] tar = Files.readAllBytes(
-            new ResourceUtil("tarballs/decimal-2.0.0.tar").asPath()
-        );
+    void publishExistedPackageReplaceFalse() {
         MatcherAssert.assertThat(
             "Wrong response status for the first upload, CREATED is expected",
             this.slice,
             new SliceHasResponse(
                 new RsHasStatus(RsStatus.CREATED),
                 new RequestLine(RqMethod.POST, "/publish?replace=false"),
-                new Headers.From(new ContentLength(tar.length)),
-                new Content.From(tar)
+                new Headers.From(new ContentLength(UploadSliceTest.tar.length)),
+                new Content.From(UploadSliceTest.tar)
             )
         );
         MatcherAssert.assertThat(
@@ -101,9 +120,41 @@ class UploadSliceTest {
             new SliceHasResponse(
                 new RsHasStatus(RsStatus.INTERNAL_ERROR),
                 new RequestLine(RqMethod.POST, "/publish?replace=false"),
-                new Headers.From(new ContentLength(tar.length)),
-                new Content.From(tar)
+                new Headers.From(new ContentLength(UploadSliceTest.tar.length)),
+                new Content.From(UploadSliceTest.tar)
             )
+        );
+    }
+
+    @Test
+    void publishExistedPackageReplaceTrue() throws Exception {
+        MatcherAssert.assertThat(
+            "Wrong response status for the first upload, CREATED is expected",
+            this.slice,
+            new SliceHasResponse(
+                new RsHasStatus(RsStatus.CREATED),
+                new RequestLine(RqMethod.POST, "/publish?replace=false"),
+                new Headers.From(new ContentLength(UploadSliceTest.tar.length)),
+                new Content.From(UploadSliceTest.tar)
+            )
+        );
+        final byte[] replacement = Files.readAllBytes(
+            new ResourceUtil("tarballs/extended_decimal-2.0.0.tar").asPath()
+        );
+        MatcherAssert.assertThat(
+            "Wrong response status for upload with tar replace, CREATED is expected",
+            this.slice,
+            new SliceHasResponse(
+                new RsHasStatus(RsStatus.CREATED),
+                new RequestLine(RqMethod.POST, "/publish?replace=true"),
+                new Headers.From(new ContentLength(replacement.length)),
+                new Content.From(replacement)
+            )
+        );
+        MatcherAssert.assertThat(
+            "Version not replaced",
+            this.checkPackage("decimal", "2.0.0", DigestUtils.sha256Hex(replacement)),
+            new IsEqual<>(true)
         );
     }
 
@@ -111,11 +162,46 @@ class UploadSliceTest {
     void returnsBadRequestOnIncorrectRequest() {
         MatcherAssert.assertThat(
             "Wrong response status, BAD_REQUEST is expected",
-            new UploadSlice(this.storage),
+            this.slice,
             new SliceHasResponse(
                 new RsHasStatus(RsStatus.BAD_REQUEST),
                 new RequestLine(RqMethod.POST, "/publish")
             )
         );
     }
+
+    private boolean checkPackage(
+        final String name,
+        final String version,
+        final String outerchecksum
+    ) throws Exception {
+        boolean result = false;
+        final byte[] gzippedbytes =
+            new Concatenation(
+                new OneTimePublisher<>(
+                    this.storage.value(new Key.From(DownloadSlice.PACKAGES, name)).join()
+                )
+            ).single()
+                .to(SingleInterop.get())
+                .thenApply(Remaining::new)
+                .thenApply(Remaining::bytes)
+                .toCompletableFuture()
+                .join();
+        final byte[] bytes = new Gzip(gzippedbytes).decompress();
+        final SignedOuterClass.Signed signed = SignedOuterClass.Signed.parseFrom(bytes);
+        final PackageOuterClass.Package pkg =
+            PackageOuterClass.Package.parseFrom(signed.getPayload());
+        final List<PackageOuterClass.Release> releases = pkg.getReleasesList();
+        for (final PackageOuterClass.Release release : releases) {
+            if (release.getVersion().equals(version)
+                && outerchecksum.equals(
+                    new String(Hex.encodeHex(release.getOuterChecksum().toByteArray()))
+                )
+            ) {
+                result = true;
+            }
+        }
+        return result;
+    }
+
 }

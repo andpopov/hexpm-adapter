@@ -11,7 +11,7 @@ import com.artipie.http.Headers;
 import com.artipie.http.Response;
 import com.artipie.http.Slice;
 import com.artipie.http.async.AsyncResponse;
-import com.artipie.http.headers.Header;
+import com.artipie.http.headers.ContentType;
 import com.artipie.http.rq.RequestLineFrom;
 import com.artipie.http.rs.RsFull;
 import com.artipie.http.rs.RsStatus;
@@ -82,7 +82,7 @@ public final class DownloadSlice implements Slice {
                                 new RsFull(
                                     RsStatus.OK,
                                     new Headers.From(
-                                        new Header("Content-Type", "application/octet-stream")
+                                        new ContentType("application/octet-stream")
                                     ),
                                     value
                                 )
