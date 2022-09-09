@@ -40,6 +40,5 @@ class UserSliceTest {
                 new RequestLine(RqMethod.GET, "/users/artipie")
             )
         );
-
     }
 }
