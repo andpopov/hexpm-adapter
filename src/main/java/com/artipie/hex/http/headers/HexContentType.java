@@ -43,7 +43,7 @@ public class HexContentType {
     public Headers fill() {
         String type = HexContentType.DEFAULT_TYPE;
         for (final Map.Entry<String, String> header : this.headers) {
-            if (Accept.NAME.equals(header.getKey()) && !header.getValue().isEmpty()) {
+            if (Accept.NAME.equalsIgnoreCase(header.getKey()) && !header.getValue().isEmpty()) {
                 type = header.getValue();
             }
         }

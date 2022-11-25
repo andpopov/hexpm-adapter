@@ -37,6 +37,24 @@ class HexContentTypeTest {
         );
     }
 
+    @Test
+    void shouldFillFromAcceptHeader_whenNameInLowerCase() {
+        String accept = "application/vnd.hex+json";
+        final Headers rqheader = new Headers.From("accept", accept);
+        final Headers headers = new HexContentType(rqheader).fill();
+        String result = "";
+        for (final Map.Entry<String, String> header : headers) {
+            if (ContentType.NAME.equals(header.getKey())) {
+                result = header.getValue();
+            }
+        }
+        MatcherAssert.assertThat(
+            result,
+            new IsEqual<>(accept)
+        );
+
+    }
+
     @ParameterizedTest
     @ValueSource(strings = {
         "application/vnd.hex+erlang",
