@@ -12,6 +12,7 @@ import com.artipie.asto.Key;
 import com.artipie.asto.OneTimePublisher;
 import com.artipie.asto.Remaining;
 import com.artipie.asto.Storage;
+import com.artipie.hex.http.headers.HexContentType;
 import com.artipie.hex.proto.generated.PackageOuterClass;
 import com.artipie.hex.proto.generated.SignedOuterClass;
 import com.artipie.hex.tarball.MetadataConfig;
@@ -21,7 +22,6 @@ import com.artipie.http.Headers;
 import com.artipie.http.Response;
 import com.artipie.http.Slice;
 import com.artipie.http.async.AsyncResponse;
-import com.artipie.http.headers.ContentType;
 import com.artipie.http.rq.RequestLineFrom;
 import com.artipie.http.rs.RsFull;
 import com.artipie.http.rs.RsStatus;
@@ -149,9 +149,7 @@ public final class UploadSlice implements Slice {
                             result = new RsFull(
                                 RsStatus.CREATED,
                                 new Headers.From(
-                                    new ContentType(
-                                        "application/vnd.hex+erlang; charset=UTF-8"
-                                    )
+                                    new HexContentType(headers).fill()
                                 ),
                                 Content.EMPTY
                             );
